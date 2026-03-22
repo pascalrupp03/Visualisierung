@@ -1,0 +1,65 @@
+precision mediump float;
+
+uniform sampler3D volumeData;
+uniform vec3 boxMin;
+uniform vec3 boxMax;
+uniform vec3 cameraPos;
+uniform float stepSize;
+
+in vec3 vWorldPos;
+
+// Ray-Box Intersection using slab method
+bool intersectBox(vec3 rayOrigin, vec3 rayDir, out float tMin, out float tMax) {
+    vec3 invDir = 1.0 / rayDir;
+    vec3 t1 = (boxMin - rayOrigin) * invDir;
+    vec3 t2 = (boxMax - rayOrigin) * invDir;
+    
+    vec3 tMin3 = min(t1, t2);
+    vec3 tMax3 = max(t1, t2);
+    
+    tMin = max(tMin3.x, max(tMin3.y, tMin3.z));
+    tMax = min(tMax3.x, min(tMax3.y, tMax3.z));
+    
+    return tMax >= tMin && tMin < 10000.0;
+}
+
+// Sample volume at world position
+float sampleVolume(vec3 worldPos) {
+    vec3 uv = (worldPos - boxMin) / (boxMax - boxMin);
+    
+    if (uv.x < 0.0 || uv.x > 1.0 ||
+        uv.y < 0.0 || uv.y > 1.0 ||
+        uv.z < 0.0 || uv.z > 1.0) {
+        return 0.0;
+    }
+    
+    return texture(volumeData, uv).r;
+}
+
+void main() {
+    vec3 rayDir = normalize(vWorldPos - cameraPos);
+    float tMin, tMax;
+    
+    if (!intersectBox(cameraPos, rayDir, tMin, tMax)) {
+        discard;
+    }
+    
+    tMin = max(tMin, 0.001);
+    
+    // MIP rendering - find maximum intensity along ray
+    float maxIntensity = 0.0;
+    float t = tMin;
+    int stepCount = 0;
+    
+    while (t < tMax && stepCount < 512) {
+        vec3 samplePos = cameraPos + rayDir * t;
+        float intensity = sampleVolume(samplePos);
+        maxIntensity = max(maxIntensity, intensity);
+        
+        t += stepSize;
+        stepCount++;
+    }
+    
+    // Output: grayscale intensity
+    gl_FragColor = vec4(vec3(maxIntensity), 1.0);
+}
