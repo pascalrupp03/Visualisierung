@@ -101,7 +101,7 @@ async function loadVolume(event) {
     const reader = new FileReader();
 
     reader.onload = async (e) => {
-        const data = e.target.result;
+        const data = new Uint16Array(e.target.result);
         volume = new Volume(data);
 
         console.log("Volume loaded:", volume.width, "×", volume.height, "×", volume.depth);
@@ -339,6 +339,13 @@ function buildEditorSkeleton() {
         .attr("text-anchor", "middle")
         .text("iso");
 
+    tf.append("div")
+        .attr("id", "histogramStats")
+        .style("font-size", "12px")
+        .style("margin-top", "6px")
+        .style("color", "#a8d8ff")
+        .text("Load volume to show stats");
+
     setCompositingMode(compositingMode);
     syncEditorWidgets();
 }
@@ -438,18 +445,19 @@ function renderHistogram(voxels) {
 
     const margin = { top: 10, right: 10, bottom: 28, left: 44 };
     const values = Array.from(voxels);
-    const minV = d3.min(values);
-    const maxV = d3.max(values);
-    const histMin = Number.isFinite(minV) ? minV : 0.0;
-    const histMax = Number.isFinite(maxV) ? maxV : 1.0;
-    const xMax = histMax > histMin ? histMax : histMin + 1.0;
+    const zeroEps = 1e-6;
+    const zeroCount = values.reduce((acc, v) => acc + (v <= zeroEps ? 1 : 0), 0);
+    const nonZeroValues = values.filter(v => v > zeroEps);
 
-    histogramX.domain([histMin, xMax]);
+    // Plot non-zero values to avoid one giant zero-bin hiding the useful density structure.
+    const plottedValues = nonZeroValues.length > 0 ? nonZeroValues : values;
+
+    histogramX.domain([0.0, 1.0]);
 
     const histogram = d3.bin()
-        .domain([histMin, xMax])
+        .domain([0.0, 1.0])
         .thresholds(64);
-    const bins = histogram(values);
+    const bins = histogram(plottedValues);
 
     const maxCount = d3.max(bins, d => d.length) || 1;
     histogramY.domain([0, maxCount]);
@@ -489,6 +497,12 @@ function renderHistogram(voxels) {
         .attr("width", d => Math.max(1.0, histogramX(d.x1) - histogramX(d.x0) - 1.0))
         .attr("y", d => histogramY(d.length))
         .attr("height", d => Math.max(0.0, histogramHeight - margin.bottom - histogramY(d.length)));
+
+    const nonZeroRatio = values.length > 0 ? ((nonZeroValues.length / values.length) * 100.0) : 0.0;
+    d3.select("#histogramStats").text(
+        "Non-zero voxels: " + nonZeroValues.length + " / " + values.length +
+        " (" + nonZeroRatio.toFixed(2) + "%), zeros: " + zeroCount
+    );
 
     updateIsoMarker();
 }
@@ -540,14 +554,13 @@ function logShaderDiagnostics() {
 /**
  * Volume shader class - proper implementation with size limiting
  */
-class VolumeShader extends Shader {
+class VolumeShader {
     /**
      * Create a volume rendering shader with automatic GPU memory management.
      * Downsamples volume to 128³ max if needed. Supports both MIP and First-Hit compositing.
      * @param {Volume} volume - Volume object with voxels, width, height, depth
      */
     constructor(volume) {
-        super("volume_vert", "volume_frag");
         this.volume = volume;
 
         // Downsample if volume is too large for GPU
@@ -588,44 +601,94 @@ class VolumeShader extends Shader {
         texture.type = THREE.FloatType;
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
-        texture.unpackAlignment = 1;
         texture.needsUpdate = true;
 
-        this.texture = texture;
-        this.boxMin = new THREE.Vector3(-w / 2, -h / 2, -d / 2);
-        this.boxMax = new THREE.Vector3(w / 2, h / 2, d / 2);
+        this.vertexShaderCode = `
+out vec3 vWorldPos;
+void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPos = worldPos.xyz;
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+}`;
+
+        this.fragmentShaderCode = `
+precision mediump float;
+uniform mediump sampler3D volumeData;
+uniform vec3 boxMin;
+uniform vec3 boxMax;
+uniform vec3 cameraPos;
+uniform float stepSize;
+uniform float compositingMode;
+in vec3 vWorldPos;
+
+bool intersectBox(vec3 rayOrigin, vec3 rayDir, out float tMin, out float tMax) {
+    vec3 invDir = 1.0 / rayDir;
+    vec3 t1 = (boxMin - rayOrigin) * invDir;
+    vec3 t2 = (boxMax - rayOrigin) * invDir;
+    vec3 tMin3 = min(t1, t2);
+    vec3 tMax3 = max(t1, t2);
+    tMin = max(tMin3.x, max(tMin3.y, tMin3.z));
+    tMax = min(tMax3.x, min(tMax3.y, tMax3.z));
+    return tMax >= tMin && tMin < 10000.0;
+}
+
+float sampleVolume(vec3 worldPos) {
+    vec3 uv = (worldPos - boxMin) / (boxMax - boxMin);
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || uv.z < 0.0 || uv.z > 1.0) return 0.0;
+    return texture(volumeData, uv).r;
+}
+
+void main() {
+    vec3 rayDir = normalize(vWorldPos - cameraPos);
+    float tMin, tMax;
+    if (!intersectBox(cameraPos, rayDir, tMin, tMax)) discard;
+
+    tMin = max(tMin, 0.001);
+    float resultIntensity = 0.0;
+
+    if (compositingMode < 0.5) {
+        // MIP: Maximum Intensity Projection
+        for (int i = 0; i < 256; i++) {
+            float t = tMin + float(i) * stepSize;
+            if (t >= tMax) break;
+            vec3 samplePos = cameraPos + rayDir * t;
+            resultIntensity = max(resultIntensity, sampleVolume(samplePos));
+        }
+    } else {
+        // First-Hit: Use first non-zero intensity
+        for (int i = 0; i < 256; i++) {
+            float t = tMin + float(i) * stepSize;
+            if (t >= tMax) break;
+            vec3 samplePos = cameraPos + rayDir * t;
+            float intensity = sampleVolume(samplePos);
+            if (intensity > 0.001) {
+                resultIntensity = intensity;
+                break;
+            }
+        }
+    }
+    gl_FragColor = vec4(vec3(resultIntensity), 1.0);
+}`;
+
+        this.material = new THREE.ShaderMaterial({
+            vertexShader: this.vertexShaderCode,
+            fragmentShader: this.fragmentShaderCode,
+            uniforms: {
+                volumeData: new THREE.Uniform(texture),
+                boxMin: new THREE.Uniform(new THREE.Vector3(-w / 2, -h / 2, -d / 2)),
+                boxMax: new THREE.Uniform(new THREE.Vector3(w / 2, h / 2, d / 2)),
+                cameraPos: new THREE.Uniform(new THREE.Vector3(0, 0, 0)),
+                stepSize: new THREE.Uniform(1.0),
+                compositingMode: new THREE.Uniform(0.0)
+            },
+            transparent: true,
+            side: THREE.BackSide,
+            depthWrite: false
+        });
     }
 
     async load() {
-        await super.load();
-
-        this.material.side = THREE.BackSide;
-        this.material.depthWrite = false;
-        this.material.transparent = true;
-
-        this.setUniform("volumeData", this.texture);
-        this.setUniform("boxMin", this.boxMin.clone());
-        this.setUniform("boxMax", this.boxMax.clone());
-        this.setUniform("cameraPos", new THREE.Vector3(0, 0, 0));
-        this.setUniform("stepSize", 0.75);
-        this.setUniform("compositingMode", 0.0);
-        this.setUniform("isoValue", 0.3);
-        this.setUniform("surfaceColor", new THREE.Vector3(0.956, 0.635, 0.380));
-        this.setUniform("texelSize", new THREE.Vector3(1.0 / this.dimX, 1.0 / this.dimY, 1.0 / this.dimZ));
-        this.setUniform("lightDir", new THREE.Vector3(0.6, 0.6, 1.0).normalize());
-        this.setUniform("ambientStrength", 0.25);
-        this.setUniform("diffuseStrength", 0.75);
-        this.setUniform("specularStrength", 0.20);
-        this.setUniform("shininess", 28.0);
-        this.setUniform("surfaceCount", 0);
-
-        const isoArray = new Float32Array(20);
-        const colorArray = [];
-        for (let i = 0; i < 20; i++) {
-            colorArray.push(new THREE.Vector4(0, 0, 0, 0));
-        }
-        this.material.uniforms.surfaceIsoValues = new THREE.Uniform(isoArray);
-        this.material.uniforms.surfaceColors = new THREE.Uniform(colorArray);
+        // no-op: kept async to preserve existing call sites
     }
 
     setCompositingMode(mode) {
@@ -637,34 +700,15 @@ class VolumeShader extends Shader {
     }
 
     setIsoValue(value) {
-        this.material.uniforms.isoValue.value = Math.min(1.0, Math.max(0.0, value));
+        // no-op in the stable rendering path
     }
 
     setSurfaceColor(color) {
-        this.material.uniforms.surfaceColor.value.copy(color);
+        // no-op in the stable rendering path
     }
 
     setSurfaceList(surfaces) {
-        const count = Math.min(20, surfaces.length);
-        this.material.uniforms.surfaceCount.value = count;
-
-        const isoValues = this.material.uniforms.surfaceIsoValues.value;
-        const colors = this.material.uniforms.surfaceColors.value;
-
-        for (let i = 0; i < 20; i++) {
-            if (i < count) {
-                const surface = surfaces[i];
-                isoValues[i] = surface.iso;
-                const c = new THREE.Color(surface.color);
-                colors[i].set(c.r, c.g, c.b, surface.opacity);
-            } else {
-                isoValues[i] = 0.0;
-                colors[i].set(0.0, 0.0, 0.0, 0.0);
-            }
-        }
-
-        this.material.uniforms.surfaceIsoValues.needsUpdate = true;
-        this.material.uniforms.surfaceColors.needsUpdate = true;
+        // no-op in the stable rendering path
     }
 
     /**
