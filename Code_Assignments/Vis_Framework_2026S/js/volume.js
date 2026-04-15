@@ -14,22 +14,53 @@
  * @author Diana Schalko
  */
 class Volume {
-    constructor(uint16Array) {
-        this.width = uint16Array[0];
-        this.height = uint16Array[1];
-        this.depth = uint16Array[2];
+    constructor(dataSource) {
+        let view = null;
+        if (dataSource instanceof ArrayBuffer) {
+            view = new DataView(dataSource);
+        } else if (ArrayBuffer.isView(dataSource)) {
+            view = new DataView(dataSource.buffer, dataSource.byteOffset, dataSource.byteLength);
+        } else {
+            throw new Error("Unsupported volume source format.");
+        }
+
+        this.width = view.getUint16(0, true);
+        this.height = view.getUint16(2, true);
+        this.depth = view.getUint16(4, true);
         this.slice = this.width * this.height;
         this.size = this.slice * this.depth;
         this.max = Math.max(this.width, this.height, this.depth);
         this.scale = new THREE.Vector3(this.width, this.height, this.depth);
 
-        let floatArray = [];
-        uint16Array.slice(3).forEach(function(voxel){
-            floatArray.push(voxel / 4095.0);
-        });
-        this.voxels = Float32Array.from(floatArray);
+        const voxelOffsetBytes = 6;
+        const expectedVoxelBytes = this.size * 2;
+        if (view.byteLength < voxelOffsetBytes + expectedVoxelBytes) {
+            throw new Error("Volume file is truncated or header dimensions are invalid.");
+        }
+
+        const rawVoxels = new Uint16Array(this.size);
+        let rawMin = 65535;
+        let rawMax = 0;
+        for (let i = 0; i < this.size; i++) {
+            const voxel = view.getUint16(voxelOffsetBytes + i * 2, true);
+            rawVoxels[i] = voxel;
+            if (voxel < rawMin) rawMin = voxel;
+            if (voxel > rawMax) rawMax = voxel;
+        }
+
+        this.rawVoxels = rawVoxels;
+        this.rawMin = rawMin;
+        this.rawMax = rawMax;
+
+        const denom = Math.max(1, rawMax - rawMin);
+        this.voxels = new Float32Array(this.size);
+        for (let i = 0; i < this.size; i++) {
+            this.voxels[i] = (rawVoxels[i] - rawMin) / denom;
+        }
 
         console.log(this.voxels.length + " voxels loaded - ["
-            + this.width + ", " + this.height + ", " + this.depth + "], max: " + this.max);
+            + this.width + ", " + this.height + ", " + this.depth + "]"
+            + ", raw range: [" + this.rawMin + ", " + this.rawMax + "]"
+            + ", normalized range: [0, 1]");
     }
 }

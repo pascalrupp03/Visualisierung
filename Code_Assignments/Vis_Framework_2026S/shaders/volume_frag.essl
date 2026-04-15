@@ -1,12 +1,28 @@
-precision mediump float;
+precision highp float;
 
-uniform sampler3D volumeData;
+uniform highp sampler3D volumeData;
 uniform vec3 boxMin;
 uniform vec3 boxMax;
 uniform vec3 cameraPos;
 uniform float stepSize;
+uniform float compositingMode;
+uniform float isoValue;
+uniform vec3 surfaceColor;
+uniform vec3 texelSize;
+uniform vec3 lightDir;
+uniform float ambientStrength;
+uniform float diffuseStrength;
+uniform float specularStrength;
+uniform float shininess;
+uniform int surfaceCount;
+uniform float surfaceIsoValues[20];
+uniform vec4 surfaceColors[20];
 
 in vec3 vWorldPos;
+out vec4 fragColor;
+
+#define MAX_STEPS 1024
+#define MAX_SURFACES 20
 
 // Ray-Box Intersection using slab method
 bool intersectBox(vec3 rayOrigin, vec3 rayDir, out float tMin, out float tMax) {
@@ -36,6 +52,124 @@ float sampleVolume(vec3 worldPos) {
     return texture(volumeData, uv).r;
 }
 
+vec3 computeGradient(vec3 worldPos) {
+    vec3 delta = (boxMax - boxMin) * texelSize;
+    float dx = sampleVolume(worldPos + vec3(delta.x, 0.0, 0.0)) - sampleVolume(worldPos - vec3(delta.x, 0.0, 0.0));
+    float dy = sampleVolume(worldPos + vec3(0.0, delta.y, 0.0)) - sampleVolume(worldPos - vec3(0.0, delta.y, 0.0));
+    float dz = sampleVolume(worldPos + vec3(0.0, 0.0, delta.z)) - sampleVolume(worldPos - vec3(0.0, 0.0, delta.z));
+    vec3 g = vec3(dx, dy, dz);
+    float gLen = length(g);
+    if (gLen < 1e-5) {
+        return vec3(0.0, 0.0, 1.0);
+    }
+    return normalize(g);
+}
+
+vec3 shadeSurface(vec3 worldPos, vec3 baseColor) {
+    vec3 n = computeGradient(worldPos);
+    vec3 l = normalize(lightDir);
+    vec3 v = normalize(cameraPos - worldPos);
+    vec3 h = normalize(l + v);
+
+    float diff = max(dot(n, l), 0.0);
+    float spec = pow(max(dot(n, h), 0.0), max(shininess, 1.0));
+    vec3 lit = baseColor * (ambientStrength + diffuseStrength * diff) + vec3(specularStrength * spec);
+    return clamp(lit, 0.0, 1.0);
+}
+
+bool findFirstIsoHit(
+    vec3 rayOrigin,
+    vec3 rayDir,
+    float tMin,
+    float tMax,
+    float targetIso,
+    out vec3 hitPos
+) {
+    float prevT = tMin;
+    float prevDensity = sampleVolume(rayOrigin + rayDir * prevT);
+
+    for (int stepIdx = 1; stepIdx < MAX_STEPS; stepIdx++) {
+        float t = tMin + float(stepIdx) * stepSize;
+        if (t > tMax) {
+            break;
+        }
+
+        vec3 samplePos = rayOrigin + rayDir * t;
+        float density = sampleVolume(samplePos);
+        float a = prevDensity - targetIso;
+        float b = density - targetIso;
+
+        if ((a <= 0.0 && b >= 0.0) || (a >= 0.0 && b <= 0.0)) {
+            float denom = density - prevDensity;
+            float alpha = 0.0;
+            if (abs(denom) > 1e-6) {
+                alpha = clamp((targetIso - prevDensity) / denom, 0.0, 1.0);
+            }
+            float hitT = mix(prevT, t, alpha);
+            hitPos = rayOrigin + rayDir * hitT;
+            return true;
+        }
+
+        prevT = t;
+        prevDensity = density;
+    }
+    return false;
+}
+
+bool findFirstTransferHit(
+    vec3 rayOrigin,
+    vec3 rayDir,
+    float tMin,
+    float tMax,
+    out vec3 hitPos,
+    out vec4 hitColor
+) {
+    float prevT = tMin;
+    float prevDensity = sampleVolume(rayOrigin + rayDir * prevT);
+
+    for (int stepIdx = 1; stepIdx < MAX_STEPS; stepIdx++) {
+        float t = tMin + float(stepIdx) * stepSize;
+        if (t > tMax) {
+            break;
+        }
+
+        float density = sampleVolume(rayOrigin + rayDir * t);
+        float bestHitT = 1e20;
+        int bestIdx = -1;
+
+        for (int i = 0; i < MAX_SURFACES; i++) {
+            if (i >= surfaceCount) {
+                break;
+            }
+            float iso = surfaceIsoValues[i];
+            float a = prevDensity - iso;
+            float b = density - iso;
+            if ((a <= 0.0 && b >= 0.0) || (a >= 0.0 && b <= 0.0)) {
+                float denom = density - prevDensity;
+                float alpha = 0.0;
+                if (abs(denom) > 1e-6) {
+                    alpha = clamp((iso - prevDensity) / denom, 0.0, 1.0);
+                }
+                float hitT = mix(prevT, t, alpha);
+                if (hitT < bestHitT) {
+                    bestHitT = hitT;
+                    bestIdx = i;
+                }
+            }
+        }
+
+        if (bestIdx >= 0) {
+            hitPos = rayOrigin + rayDir * bestHitT;
+            hitColor = surfaceColors[bestIdx];
+            return true;
+        }
+
+        prevT = t;
+        prevDensity = density;
+    }
+    return false;
+}
+
 void main() {
     vec3 rayDir = normalize(vWorldPos - cameraPos);
     float tMin, tMax;
@@ -45,21 +179,40 @@ void main() {
     }
     
     tMin = max(tMin, 0.001);
-    
-    // MIP rendering - find maximum intensity along ray
-    float maxIntensity = 0.0;
-    float t = tMin;
-    int stepCount = 0;
-    
-    while (t < tMax && stepCount < 512) {
-        vec3 samplePos = cameraPos + rayDir * t;
-        float intensity = sampleVolume(samplePos);
-        maxIntensity = max(maxIntensity, intensity);
-        
-        t += stepSize;
-        stepCount++;
+
+    if (compositingMode < 0.5) {
+        float maxIntensity = 0.0;
+        for (int stepIdx = 0; stepIdx < MAX_STEPS; stepIdx++) {
+            float t = tMin + float(stepIdx) * stepSize;
+            if (t > tMax) {
+                break;
+            }
+            vec3 samplePos = cameraPos + rayDir * t;
+            float density = sampleVolume(samplePos);
+            maxIntensity = max(maxIntensity, density);
+        }
+        fragColor = vec4(vec3(maxIntensity), 1.0);
+        return;
     }
-    
-    // Output: grayscale intensity
-    gl_FragColor = vec4(vec3(maxIntensity), 1.0);
+
+    if (surfaceCount > 0) {
+        vec3 hitPos;
+        vec4 tfColor;
+        if (findFirstTransferHit(cameraPos, rayDir, tMin, tMax, hitPos, tfColor)) {
+            vec3 shaded = shadeSurface(hitPos, tfColor.rgb);
+            fragColor = vec4(shaded, tfColor.a);
+            return;
+        }
+        discard;
+        return;
+    }
+
+    vec3 hitPos;
+    if (findFirstIsoHit(cameraPos, rayDir, tMin, tMax, isoValue, hitPos)) {
+        vec3 shaded = shadeSurface(hitPos, surfaceColor);
+        fragColor = vec4(shaded, 1.0);
+        return;
+    }
+
+    discard;
 }
