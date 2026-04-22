@@ -26,9 +26,20 @@ for i, col in enumerate(categories):
     # set labels
     ax.plot(df.index, df[col], label=col, color=colors[i % len(colors)], linewidth=1.5)
 
-jan_mask = df['Zeitraum'].str.startswith('Jän')  # only show january labels :)
-ax.set_xticks(df.index[jan_mask])
-ax.set_xticklabels(df['Zeitraum'][jan_mask], rotation=45, ha='right', fontsize=8)  # had to rotate for readability
+events = {
+    'Jän.20': 'COVID-19',
+    'Feb.22': 'Ukraine\nKrieg',
+    'Jän.23': 'Inflations-\nhöhepunkt',
+}
+
+jan_jd_mask = df['Zeitraum'].str.startswith('Jahresdurchschnitt')
+ax.set_xticks(df.index[jan_jd_mask])
+ax.set_xticklabels(df['Zeitraum'][jan_jd_mask], rotation=45, ha='right', fontsize=8)
+
+for datum, label in events.items():
+    idx = df.index[df['Zeitraum'] == datum][0]
+    ax.axvline(x=idx, color='red', linestyle=':', linewidth=1.2, alpha=0.7)
+    ax.text(idx + 0.5, ax.get_ylim()[0] * 0.95, label, fontsize=9, color='red', va='bottom')
 
 ax.set_title('Verbraucherpreisindex (VPI) 2015–2025\nby category (Veränderung seit 2015)',
              fontsize=13, fontweight='bold')
