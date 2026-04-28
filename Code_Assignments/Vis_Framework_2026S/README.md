@@ -3,7 +3,13 @@
 Load one of the provided volume files through the GUI. 
 Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel. 
 
-**TODO: complete this section!** (how to use the editor etc.)
+HOW TO USE for JOY and PASCAL
+ADD BETWEEN THAT 
+#################
+The current implementation uses single-pass raycasting with MIP and First-Hit compositing. The volume is rendered directly from the bounding box, and the shader intersects the camera ray against the box with the slab method before marching through the 3D texture.
+
+For best results, use the provided volume files with different aspect ratios to verify that the bounding box stays proportional to the loaded dataset.
+#################
 
 ## Framework Description
 
