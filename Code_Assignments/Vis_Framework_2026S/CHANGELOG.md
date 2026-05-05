@@ -57,7 +57,22 @@
 
 ## Task 3: First-Hit Compositing
 
-*(noch nicht implementiert)*
+### Modifizierte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `shaders/raycaster_frag.essl` | First-Hit Compositing hinzugefügt: prüft ob Iso-Wert zwischen zwei aufeinanderfolgenden Samples liegt, lineare Interpolation der Hit-Position. Compositing-Modus über `uCompositingMode` Uniform steuerbar (0=MIP, 1=First-Hit). |
+| `js/raycasterShader.js` | Neue Uniforms (`uIsoValue`, `uCompositingMode`, `uSurfaceColor`) und Setter-Methoden hinzugefügt. Default: First-Hit mit Iso=0.3, weiße Oberfläche. |
+
+### Technische Details
+
+- **Iso-Surface Detection**: Prüft bei jedem Schritt ob `prevDensity < isoValue <= density` (oder umgekehrt)
+- **Lineare Interpolation**: `interpFactor = (isoValue - prevDensity) / (density - prevDensity)` → exakte Hit-Position zwischen den zwei Sample-Positionen
+- **Compositing-Modes**: Beide erhalten (MIP=0, First-Hit=1), umschaltbar über Uniform
+- **Surface Color**: Über Uniform `uSurfaceColor` konfigurierbar (vorbereitet für Task 5 Editor)
+- **D3.js**: Nicht relevant (reiner Shader-Code)
+
+---
 
 ## Task 4: Gradients and Shading
 
