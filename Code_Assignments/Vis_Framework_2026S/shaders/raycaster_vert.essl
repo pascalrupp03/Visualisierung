@@ -1,0 +1,15 @@
+/*
+* Vis 1 Task 1 - Volume Raycasting
+* Vertex shader: transforms vertices and passes world-space position to fragment shader.
+*/
+#ifndef GL_ES
+#version 330 es
+#endif
+
+out vec3 vWorldPosition;
+
+void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+}

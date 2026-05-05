@@ -1,0 +1,85 @@
+/*
+* Vis 1 Task 1 - Volume Raycasting
+* Fragment shader: performs single-pass raycasting with MIP compositing.
+* Uses the branchless slab method for ray/AABB intersection.
+*/
+#ifndef GL_ES
+#version 330 es
+#endif
+
+precision highp int;
+precision highp float;
+precision highp sampler3D;
+
+in vec3 vWorldPosition;
+
+uniform vec3 uVolumeSize;
+uniform sampler3D uVolumeTexture;
+
+out vec4 fragColor;
+
+// Convert world-space position to texture coordinates [0,1]^3
+vec3 worldToTexCoord(vec3 pos) {
+    return (pos + uVolumeSize * 0.5) / uVolumeSize;
+}
+
+// Branchless slab method for ray/AABB intersection
+// Returns vec2(tmin, tmax) - entry and exit distances along the ray
+vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
+    vec3 invDir = 1.0 / rayDir;
+
+    vec3 t1 = (boxMin - rayOrigin) * invDir;
+    vec3 t2 = (boxMax - rayOrigin) * invDir;
+
+    vec3 tminv = min(t1, t2);
+    vec3 tmaxv = max(t1, t2);
+
+    float tmin = max(max(tminv.x, tminv.y), tminv.z);
+    float tmax = min(min(tmaxv.x, tmaxv.y), tmaxv.z);
+
+    return vec2(tmin, tmax);
+}
+
+void main() {
+    // Bounding box in world space (centered at origin)
+    vec3 boxMin = -uVolumeSize * 0.5;
+    vec3 boxMax = uVolumeSize * 0.5;
+
+    // Ray definition: origin at camera, direction through this fragment
+    vec3 rayOrigin = cameraPosition;
+    vec3 rayDir = normalize(vWorldPosition - cameraPosition);
+
+    // Compute ray/AABB intersection using branchless slab method
+    vec2 tHit = intersectAABB(rayOrigin, rayDir, boxMin, boxMax);
+    float tmin = tHit.x;
+    float tmax = tHit.y;
+
+    // Discard if no intersection
+    if (tmax < tmin || tmax < 0.0) {
+        discard;
+    }
+
+    // Clamp tmin to 0 (handles camera inside the box)
+    tmin = max(tmin, 0.0);
+
+    // Compute step size: ~2 samples per voxel along the longest axis
+    float maxDim = max(uVolumeSize.x, max(uVolumeSize.y, uVolumeSize.z));
+    float stepSize = length(uVolumeSize) / (maxDim * 2.0);
+
+    // Maximum Intensity Projection (MIP)
+    float maxIntensity = 0.0;
+
+    // Ray marching loop
+    float t = tmin;
+    while (t < tmax) {
+        vec3 samplePos = rayOrigin + t * rayDir;
+        vec3 texCoord = worldToTexCoord(samplePos);
+
+        float density = texture(uVolumeTexture, texCoord).r;
+        maxIntensity = max(maxIntensity, density);
+
+        t += stepSize;
+    }
+
+    fragColor = vec4(vec3(maxIntensity), 1.0);
+}
