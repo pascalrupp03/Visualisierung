@@ -1,7 +1,8 @@
 /*
-* Vis 1 Task 1+3 - Volume Raycasting
+* Vis 1 Task 1+3+4 - Volume Raycasting
 * Fragment shader: performs single-pass raycasting.
 * Supports MIP and First-Hit compositing (controlled by uCompositingMode).
+* First-Hit includes gradient computation and Phong shading.
 * Uses the branchless slab method for ray/AABB intersection.
 */
 #ifndef GL_ES
@@ -27,8 +28,43 @@ vec3 worldToTexCoord(vec3 pos) {
     return (pos + uVolumeSize * 0.5) / uVolumeSize;
 }
 
+// Compute gradient using central differences (= surface normal)
+// ∇f(x,y,z) = 0.5 * (f(x-ε)-f(x+ε), f(y-ε)-f(y+ε), f(z-ε)-f(z+ε))
+vec3 computeGradient(vec3 texCoord) {
+    vec3 epsilon = 1.0 / uVolumeSize; // one voxel step in texture space
+
+    float dx = texture(uVolumeTexture, texCoord - vec3(epsilon.x, 0.0, 0.0)).r
+             - texture(uVolumeTexture, texCoord + vec3(epsilon.x, 0.0, 0.0)).r;
+    float dy = texture(uVolumeTexture, texCoord - vec3(0.0, epsilon.y, 0.0)).r
+             - texture(uVolumeTexture, texCoord + vec3(0.0, epsilon.y, 0.0)).r;
+    float dz = texture(uVolumeTexture, texCoord - vec3(0.0, 0.0, epsilon.z)).r
+             - texture(uVolumeTexture, texCoord + vec3(0.0, 0.0, epsilon.z)).r;
+
+    return 0.5 * vec3(dx, dy, dz);
+}
+
+// Phong shading
+vec3 phongShading(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 color) {
+    // Ambient
+    float ka = 0.2;
+    vec3 ambient = ka * color;
+
+    // Diffuse
+    float kd = 0.7;
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = kd * diff * color;
+
+    // Specular (Blinn-Phong)
+    float ks = 0.5;
+    float shininess = 50.0;
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfDir), 0.0), shininess);
+    vec3 specular = ks * spec * vec3(1.0);
+
+    return ambient + diffuse + specular;
+}
+
 // Branchless slab method for ray/AABB intersection
-// Returns vec2(tmin, tmax) - entry and exit distances along the ray
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
     vec3 invDir = 1.0 / rayDir;
 
@@ -66,9 +102,9 @@ void main() {
     // Clamp tmin to 0 (handles camera inside the box)
     tmin = max(tmin, 0.0);
 
-    // Compute step size: ~2 samples per voxel along the longest axis
+    // Compute step size: higher sampling rate reduces banding artifacts
     float maxDim = max(uVolumeSize.x, max(uVolumeSize.y, uVolumeSize.z));
-    float stepSize = length(uVolumeSize) / (maxDim * 2.0);
+    float stepSize = length(uVolumeSize) / (maxDim * 3.0);
 
     // Ray marching
     float t = tmin;
@@ -94,8 +130,19 @@ void main() {
                 vec3 hitPos = rayOrigin + (t - stepSize + interpFactor * stepSize) * rayDir;
                 vec3 hitTexCoord = worldToTexCoord(hitPos);
 
-                // Output the hit position as RGB color (Task 3 visualization)
-                fragColor = vec4(hitTexCoord, 1.0);
+                // Compute gradient as surface normal
+                vec3 gradient = computeGradient(hitTexCoord);
+                vec3 normal = normalize(gradient);
+
+                // View direction (from hit point toward camera)
+                vec3 viewDir = normalize(cameraPosition - hitPos);
+
+                // Light direction (from camera position = headlight)
+                vec3 lightDir = viewDir;
+
+                // Apply Phong shading with surface color
+                vec3 shadedColor = phongShading(normal, viewDir, lightDir, uSurfaceColor);
+                fragColor = vec4(shadedColor, 1.0);
                 return;
             }
             prevDensity = density;
