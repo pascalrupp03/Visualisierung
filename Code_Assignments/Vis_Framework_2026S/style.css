@@ -2,33 +2,90 @@ body {
     font: 14px sans-serif;
     color: white;
     background-color: black;
+    margin: 0;
+    padding: 12px;
 }
 
 .container {
     display: flex;
-    vertical-align:top;
+    align-items: flex-start;
+    gap: 14px;
     width: 100%;
-    height: 50%;
-    padding: 10px;
-    border: 0px solid black;
+    height: calc(100vh - 120px);
+    padding: 8px 0;
+    box-sizing: border-box;
 }
 
-#viewContainer{
-    flex: 2;
+#viewContainer {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
-#tfContainer{
-    flex: 1;
-    min-width: 360px;
-    padding: 8px 12px;
-    border-left: 1px solid #2d2d2d;
+#tfContainer {
+    flex: 0 0 420px;
+    min-height: 100%;
+    padding: 12px;
+    border: 1px solid #2f4054;
+    border-radius: 10px;
+    background: #10151d;
+    box-sizing: border-box;
 }
 
-.dot{
-    height: 5px;
-    width: 5px;
-    border-radius: 50%;
-    margin: 1px;
+#tfContainer svg {
+    display: block;
+    width: 100%;
+    background: #18212d;
+    border: 1px solid #263446;
+    border-radius: 8px;
+}
+
+#tfContainer .hist-axis .domain,
+#tfContainer .hist-axis .tick line {
+    stroke: #2a3448;
+}
+
+#tfContainer .hist-axis .tick text {
+    fill: #8fa1bc;
+    font-size: 11px;
+}
+
+#tfContainer .hist-area {
+    fill: rgba(90, 160, 255, 0.3);
+    stroke: #5aa0ff;
+}
+
+#tfContainer .hist-iso-line {
+    stroke: #ff6b6b;
+}
+
+#tfContainer .hist-iso-label {
+    fill: #ff6b6b;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+#renderControls {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+#renderControls .controlRow {
+    display: grid;
+    grid-template-columns: 70px 1fr 44px;
+    align-items: center;
+    gap: 8px;
+}
+
+#renderControls label {
+    color: #dce4ef;
+    font-size: 12px;
+}
+
+#renderControls span {
+    color: #8cc7ff;
+    font-size: 12px;
+    text-align: right;
 }
 
 .mode-btn {
@@ -40,87 +97,10 @@ body {
     border: 2px solid #555;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.mode-btn:hover {
-    background-color: #444;
-    border-color: #777;
 }
 
 .mode-btn.active {
     background-color: #0099ff;
     border-color: #0077cc;
     font-weight: bold;
-}
-
-#tfContainer h3 {
-    margin: 8px 0;
-    font-size: 16px;
-}
-
-#controlPanel,
-#firstHitControls {
-    display: grid;
-    grid-template-columns: 1fr;
-    row-gap: 6px;
-    margin-bottom: 12px;
-    padding: 8px;
-    border: 1px solid #2f2f2f;
-    border-radius: 6px;
-    background: #111;
-}
-
-#stepSizeValue,
-#isoValueText {
-    color: #8ecdf9;
-    font-family: monospace;
-}
-
-#surfaceColorSelect,
-.surfaceRow select {
-    background: #1b1b1b;
-    color: #f4f4f4;
-    border: 1px solid #474747;
-    border-radius: 4px;
-    padding: 4px;
-}
-
-#addSurfaceBtn,
-.surfaceRemove {
-    padding: 6px 10px;
-    background: #1c6ea4;
-    color: #f3f3f3;
-    border: 1px solid #3190cf;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#surfaceList {
-    display: grid;
-    row-gap: 6px;
-    margin-top: 4px;
-}
-
-.surfaceRow {
-    display: grid;
-    grid-template-columns: 30px 1fr 1fr 1fr auto;
-    gap: 6px;
-    align-items: center;
-    padding: 6px;
-    border: 1px solid #333;
-    border-radius: 4px;
-    background: #171717;
-}
-
-.surfaceLabel {
-    color: #ffd166;
-    font-size: 12px;
-    text-align: center;
-}
-
-#histogramSvg {
-    border: 1px solid #2f2f2f;
-    border-radius: 6px;
-    background: #0d0d0d;
 }

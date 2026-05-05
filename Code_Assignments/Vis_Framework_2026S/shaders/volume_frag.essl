@@ -189,9 +189,15 @@ void main() {
             }
             vec3 samplePos = cameraPos + rayDir * t;
             float density = sampleVolume(samplePos);
-            maxIntensity = max(maxIntensity, density);
+            if (density >= isoValue) {
+                maxIntensity = max(maxIntensity, density);
+            }
         }
-        fragColor = vec4(vec3(maxIntensity), 1.0);
+        if (maxIntensity <= isoValue) {
+            discard;
+        }
+        float mapped = (maxIntensity - isoValue) / max(1e-6, 1.0 - isoValue);
+        fragColor = vec4(vec3(clamp(mapped, 0.0, 1.0)), 1.0);
         return;
     }
 

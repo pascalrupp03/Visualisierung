@@ -15,7 +15,7 @@ df.columns = ['Zeitraum'] + categories  # set column names
 df = df.dropna(subset=['Zeitraum'])  # drop any blank rows
 df[categories] = df[categories].apply(pd.to_numeric, errors='coerce')  # convert to numeric, coerce errors to NaN (just in case)
 df[categories] = df[categories] - 100  # 0% = Basisjahr 2015
-df = df.reset_index(drop=True)
+df = df.reset_index(drop=True) # reset index after dropping rows that had missing values, just to be safe
 
 ######### ! PLOT ##########
 fig, ax = plt.subplots(figsize=(16, 7))
