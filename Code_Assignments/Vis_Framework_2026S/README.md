@@ -1,9 +1,42 @@
 ## How to Use
 
-Load one of the provided volume files through the GUI. 
-Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel. 
+Load one of the provided volume files through the GUI.
+Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel.
 
-**TODO: complete this section!** (how to use the editor etc.)
+### Some FIRST ACTIONS NEED TO BE REFINED
+### Running the Application
+
+The application must be served from a web server (not opened directly via `file://`).
+
+- **WebStorm**: Open the project folder, then open `index.html` and click a browser icon in the top right.
+- **VS Code + Live Server**: Install the "Live Server" extension, right-click `index.html` → "Open with Live Server".
+- **Python**: Run `python -m http.server 8000` in the project folder, then open `http://localhost:8000` in Chrome.
+
+**Recommended browser:** Google Chrome with hardware acceleration enabled.
+
+### Editor / Interaction Options
+
+The editor panel is located to the right of the 3D viewport and provides the following controls:
+
+| Control | Action |
+|---------|--------|
+| **Compositing Mode** dropdown | Switch between MIP (Maximum Intensity Projection) and First-Hit rendering |
+| **Drag circle on histogram** | Change the iso-value by dragging the white circle/line indicator left or right on the density histogram |
+| **Color swatches** (20 colors) | Click a color swatch to change the iso-surface color. Colors are systematically selected via HSL color space (18 hues) + white + gray |
+
+### Volume Interaction
+
+| Input | Action |
+|-------|--------|
+| Left mouse button + drag | Rotate camera around volume |
+| Scroll wheel | Zoom in/out |
+
+### Notes
+
+- The density histogram is automatically recalculated and animated when a new data set is loaded.
+- The iso-value indicator on the histogram is coupled to the shader — changes are reflected in real-time.
+- The step size for ray marching is computed automatically based on the volume dimensions (no manual adjustment needed).
+
 
 ## Framework Description
 
