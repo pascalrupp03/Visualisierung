@@ -32,6 +32,19 @@
 <!-- data selector -->
 <p>Select your data here: <input id="upload" type="file"></p>
 
+<!-- rendering controls -->
+<div id="controls">
+    <label>Mode:
+        <select id="compositingMode">
+            <option value="0">MIP</option>
+            <option value="1" selected>First-Hit</option>
+        </select>
+    </label>
+    <label>Iso-Value: <span id="isoValueDisplay">0.30</span>
+        <input id="isoValueSlider" type="range" min="0" max="1" step="0.01" value="0.30">
+    </label>
+</div>
+
 <div class="container">
 
     <!-- volume rendering container -->
