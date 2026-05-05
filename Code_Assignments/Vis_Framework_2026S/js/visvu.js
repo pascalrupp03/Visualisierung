@@ -21,6 +21,7 @@ let volume = null;
 let fileInput = null;
 let raycasterShader = null;
 let histogram = null;
+let editor = null;
 
 /**
  * Load all data and initialize UI here.
@@ -43,27 +44,31 @@ function init() {
     // initialize histogram in the transfer function container
     histogram = new Histogram("#tfContainer");
 
-    // iso-value slider
-    const isoSlider = document.getElementById("isoValueSlider");
-    const isoDisplay = document.getElementById("isoValueDisplay");
-    isoSlider.addEventListener('input', function() {
-        const val = parseFloat(this.value);
-        isoDisplay.textContent = val.toFixed(2);
-        if (raycasterShader) {
-            raycasterShader.setIsoValue(val);
-            requestAnimationFrame(paint);
+    // initialize interactive editor with d3
+    editor = new Editor("#tfContainer",
+        // onIsoValueChange
+        function(val) {
+            if (raycasterShader) {
+                raycasterShader.setIsoValue(val);
+                requestAnimationFrame(paint);
+            }
+        },
+        // onColorChange
+        function(r, g, b) {
+            if (raycasterShader) {
+                raycasterShader.setSurfaceColor(r, g, b);
+                requestAnimationFrame(paint);
+            }
+        },
+        // onModeChange
+        function(mode) {
+            if (raycasterShader) {
+                raycasterShader.setCompositingMode(mode);
+                requestAnimationFrame(paint);
+            }
         }
-    });
-
-    // compositing mode selector
-    const modeSelect = document.getElementById("compositingMode");
-    modeSelect.addEventListener('change', function() {
-        const mode = parseInt(this.value);
-        if (raycasterShader) {
-            raycasterShader.setCompositingMode(mode);
-            requestAnimationFrame(paint);
-        }
-    });
+    );
+    editor.setHistogram(histogram);
 }
 
 /**
