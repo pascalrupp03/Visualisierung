@@ -102,7 +102,7 @@ void main() {
     // Clamp tmin to 0 (handles camera inside the box)
     tmin = max(tmin, 0.0);
 
-    // Compute step size: higher sampling rate reduces banding artifacts
+    // Compute step size: high sampling rate to minimize banding/ring artifacts
     float maxDim = max(uVolumeSize.x, max(uVolumeSize.y, uVolumeSize.z));
     float stepSize = length(uVolumeSize) / (maxDim * 3.0);
 
