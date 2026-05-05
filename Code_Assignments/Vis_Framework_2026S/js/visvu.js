@@ -20,6 +20,7 @@ let container = null;
 let volume = null;
 let fileInput = null;
 let raycasterShader = null;
+let histogram = null;
 
 /**
  * Load all data and initialize UI here.
@@ -38,6 +39,9 @@ function init() {
     // read and parse volume file
     fileInput = document.getElementById("upload");
     fileInput.addEventListener('change', readFile);
+
+    // initialize histogram in the transfer function container
+    histogram = new Histogram("#tfContainer");
 }
 
 /**
@@ -89,6 +93,9 @@ async function resetVis(){
 
     // our camera orbits around an object centered at (0,0,0)
     orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0,0,0), 2*volume.max, renderer.domElement);
+
+    // update histogram with new volume data
+    histogram.update(volume);
 
     // init paint loop
     requestAnimationFrame(paint);
