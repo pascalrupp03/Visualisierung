@@ -3,7 +3,6 @@
 Load one of the provided volume files through the GUI.
 Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel.
 
-### Some FIRST ACTIONS NEED TO BE REFINED
 ### Running the Application
 
 The application must be served from a web server (not opened directly via `file://`).
