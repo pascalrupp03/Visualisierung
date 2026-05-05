@@ -1,6 +1,7 @@
 /*
-* Vis 1 Task 1 - Volume Raycasting
-* Fragment shader: performs single-pass raycasting with MIP compositing.
+* Vis 1 Task 1+3 - Volume Raycasting
+* Fragment shader: performs single-pass raycasting.
+* Supports MIP and First-Hit compositing (controlled by uCompositingMode).
 * Uses the branchless slab method for ray/AABB intersection.
 */
 #ifndef GL_ES
@@ -15,6 +16,9 @@ in vec3 vWorldPosition;
 
 uniform vec3 uVolumeSize;
 uniform sampler3D uVolumeTexture;
+uniform float uIsoValue;
+uniform int uCompositingMode; // 0 = MIP, 1 = First-Hit
+uniform vec3 uSurfaceColor;
 
 out vec4 fragColor;
 
@@ -66,20 +70,46 @@ void main() {
     float maxDim = max(uVolumeSize.x, max(uVolumeSize.y, uVolumeSize.z));
     float stepSize = length(uVolumeSize) / (maxDim * 2.0);
 
-    // Maximum Intensity Projection (MIP)
-    float maxIntensity = 0.0;
-
-    // Ray marching loop
+    // Ray marching
     float t = tmin;
+    float maxIntensity = 0.0;
+    float prevDensity = -1.0;
+
     while (t < tmax) {
         vec3 samplePos = rayOrigin + t * rayDir;
         vec3 texCoord = worldToTexCoord(samplePos);
-
         float density = texture(uVolumeTexture, texCoord).r;
-        maxIntensity = max(maxIntensity, density);
+
+        if (uCompositingMode == 0) {
+            // MIP: track maximum intensity along the ray
+            maxIntensity = max(maxIntensity, density);
+        } else {
+            // First-Hit: check if iso-value lies between previous and current density
+            if (prevDensity >= 0.0 &&
+                ((prevDensity < uIsoValue && density >= uIsoValue) ||
+                 (prevDensity >= uIsoValue && density < uIsoValue))) {
+
+                // Linear interpolation to find exact hit position
+                float interpFactor = (uIsoValue - prevDensity) / (density - prevDensity);
+                vec3 hitPos = rayOrigin + (t - stepSize + interpFactor * stepSize) * rayDir;
+                vec3 hitTexCoord = worldToTexCoord(hitPos);
+
+                // Output the hit position as RGB color (Task 3 visualization)
+                fragColor = vec4(hitTexCoord, 1.0);
+                return;
+            }
+            prevDensity = density;
+        }
 
         t += stepSize;
     }
 
-    fragColor = vec4(vec3(maxIntensity), 1.0);
+    // Final output
+    if (uCompositingMode == 0) {
+        // MIP: output max intensity as grayscale
+        fragColor = vec4(vec3(maxIntensity), 1.0);
+    } else {
+        // First-Hit: no surface found, discard
+        discard;
+    }
 }
