@@ -42,6 +42,28 @@ function init() {
 
     // initialize histogram in the transfer function container
     histogram = new Histogram("#tfContainer");
+
+    // iso-value slider
+    const isoSlider = document.getElementById("isoValueSlider");
+    const isoDisplay = document.getElementById("isoValueDisplay");
+    isoSlider.addEventListener('input', function() {
+        const val = parseFloat(this.value);
+        isoDisplay.textContent = val.toFixed(2);
+        if (raycasterShader) {
+            raycasterShader.setIsoValue(val);
+            requestAnimationFrame(paint);
+        }
+    });
+
+    // compositing mode selector
+    const modeSelect = document.getElementById("compositingMode");
+    modeSelect.addEventListener('change', function() {
+        const mode = parseInt(this.value);
+        if (raycasterShader) {
+            raycasterShader.setCompositingMode(mode);
+            requestAnimationFrame(paint);
+        }
+    });
 }
 
 /**
