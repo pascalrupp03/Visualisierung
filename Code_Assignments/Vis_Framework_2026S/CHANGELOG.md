@@ -30,7 +30,30 @@
 
 ## Task 2: Density Histogram
 
-*(noch nicht implementiert)*
+### Neue Dateien
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `js/histogram.js` | Histogram-Klasse: berechnet und rendert die Dichteverteilung des Volumens als Balkendiagramm mittels d3.js. |
+
+### Modifizierte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `js/visvu.js` | `histogram`-Variable hinzugefügt, Initialisierung in `init()`, Aufruf von `histogram.update(volume)` in `resetVis()`. |
+| `index.html` | `<script src="js/histogram.js">` hinzugefügt. |
+
+### Technische Details
+
+- **d3.bin()**: Berechnet 50 Bins über den Dichtebereich [0, 1] (aus d3-array)
+- **d3.scaleSqrt()**: Wurzel-Skalierung für Y-Achse — macht auch kleine Bins gut lesbar bei stark unterschiedlichen Zählungen
+- **d3.scaleLinear()**: Lineare X-Achse für Dichtewerte [0, 1]
+- **d3.axisBottom() / d3.axisLeft()**: Achsen-Generatoren (aus d3-axis)
+- **d3 Data Joins**: `.join(enter, update, exit)` Pattern (d3 v6+) für korrekte Datenbindung
+- **Animated Transitions**: `.transition().duration(750)` auf Enter, Update und Exit für animierte Übergänge bei Datenwechsel
+- **Skalierung**: Erster Bin (oft Hintergrund/Luft mit sehr hoher Zählung) wird bei Y-Domain übersprungen, damit restliche Bins lesbar bleiben
+
+---
 
 ## Task 3: First-Hit Compositing
 
