@@ -76,7 +76,35 @@
 
 ## Task 4: Gradients and Shading
 
-*(noch nicht implementiert)*
+### Modifizierte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `shaders/raycaster_frag.essl` | `computeGradient()` Funktion (zentrale Differenzen) und `phongShading()` (Blinn-Phong) hinzugefügt. First-Hit gibt jetzt beleuchtete Oberfläche aus statt Position-als-Farbe. |
+
+### Technische Details
+
+- **Gradient (Normale)**: Zentrale Differenzen mit ε = 1 Voxel: `∇f = 0.5 * (f(x-ε)-f(x+ε), f(y-ε)-f(y+ε), f(z-ε)-f(z+ε))`
+- **Shading**: Blinn-Phong mit Headlight (Licht = Kamerarichtung)
+  - Ambient: ka=0.2
+  - Diffuse: kd=0.7
+  - Specular: ks=0.5, shininess=50
+- **Lichtquelle**: Headlight (= View-Richtung), ergibt gleichmäßige Beleuchtung beim Rotieren
+- **Surface Color**: Wird als `uSurfaceColor` Uniform an Phong übergeben (default: weiß)
+- **Step Size**: `diagonal / (maxDim * 3.0)` — höhere Abtastrate reduziert Ring-/Banding-Artefakte
+
+### Begründung der Parameterwahl
+
+| Parameter | Wert | Begründung |
+|-----------|------|------------|
+| ka (ambient) | 0.2 | Niedrig genug damit Schattierungen erkennbar bleiben, hoch genug damit keine komplett schwarzen Bereiche entstehen |
+| kd (diffuse) | 0.7 | Dominanter Term — sorgt dafür, dass die Oberflächenform klar erkennbar ist (Hauptanforderung laut Angabe) |
+| ks (specular) | 0.5 | Mäßiger Glanz — gibt Plastizität ohne die Form zu überstrahlen |
+| shininess | 50 | Mittelwert — erzeugt kompakte Highlights die organische Oberflächen (Knochen) gut darstellen |
+| Lichtrichtung | Headlight (=View) | Garantiert immer beleuchtete Oberfläche unabhängig vom Kamerawinkel — kein "dunkle Seite" Problem |
+| Step Size | diagonal/3N | Kompromiss zwischen Performance und Bildqualität — weniger Banding-Artefakte als diagonal/2N |
+
+---
 
 ## Task 5: Interactive Editor
 
