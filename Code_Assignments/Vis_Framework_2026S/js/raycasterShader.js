@@ -8,6 +8,8 @@
 class RaycasterShader extends Shader {
     constructor(volumeTexture, volumeSize) {
         super("raycaster_vert", "raycaster_frag");
+        // Render back faces so the fragment shader runs for fragments visible from outside
+        this.material.side = THREE.BackSide;
         this.setUniform("uVolumeTexture", volumeTexture);
         this.setUniform("uVolumeSize", volumeSize);
         this.setUniform("uIsoValue", 0.3);
