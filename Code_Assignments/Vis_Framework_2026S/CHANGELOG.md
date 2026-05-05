@@ -108,7 +108,30 @@
 
 ## Task 5: Interactive Editor
 
-*(noch nicht implementiert)*
+### Neue Dateien
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `js/editor.js` | Editor-Klasse: interaktiver Iso-Wert (draggbar im Histogram) + Farbwähler mit 20 Farben + Modus-Umschalter. Alles mit d3.js. |
+
+### Modifizierte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `js/visvu.js` | Editor initialisiert mit Callbacks für Iso-Value, Farbe und Modus. Editor mit Histogram gekoppelt. |
+| `index.html` | `<script src="js/editor.js">` hinzugefügt. |
+| `style.css` | CSS für Editor-Sections, Color-Swatches und Iso-Indicator hinzugefügt. |
+
+### Technische Details
+
+- **d3.drag()**: Draggable Iso-Wert Indikator (Linie + Kreis) direkt auf dem Histogram (d3 v6+ event API)
+- **d3-color**: `d3.hsl()` für systematische Farbgenerierung (18 Hues × 360°) + `d3.rgb()` für weiß/grau
+- **d3-selection Events**: `.on("click", ...)` für Farbwahl, `.on("change", ...)` für Modus-Selector
+- **Histogram-Kopplung**: Iso-Linie bewegt sich synchron mit dem Slider (beide Richtungen)
+- **20 Farben**: 18 HSL-Farben (Hue 0-340°, S=100%, L=50%) + Weiß + Hellgrau
+- **Draggable Indicator**: `d3.drag()` mit clamping auf Histogram-Breite, live-Update des Iso-Werts
+
+---
 
 ## Task 6: Transfer Function
 
