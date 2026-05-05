@@ -1,20 +1,18 @@
 /**
- * Vis 1 Task 2 - Density Histogram
- *
- * Displays the distribution of density values of the loaded volume data set.
- * Uses d3.bin() for histogram computation, d3 data joins for rendering,
- * and animated transitions when data changes.
+ * Density histogram using d3.
+ * Shows the distribution of voxel values for the loaded dataset.
+ * Recalculates and animates when a new file is loaded.
  */
 class Histogram {
     constructor(containerSelector) {
         this.container = containerSelector;
 
-        // Layout dimensions
+        // dimensions
         this.margin = { top: 20, right: 20, bottom: 40, left: 50 };
         this.width = 400 - this.margin.left - this.margin.right;
         this.height = 300 - this.margin.top - this.margin.bottom;
 
-        // Create SVG once
+        // svg setup
         this.svg = d3.select(this.container)
             .append("svg")
             .attr("width", this.width + this.margin.left + this.margin.right)
@@ -22,12 +20,11 @@ class Histogram {
             .append("g")
             .attr("transform", `translate(${this.margin.left},${this.margin.top})`);
 
-        // X scale: density values [0, 1]
+        // x: density [0,1], y: frequency (sqrt scale so small bins are readable)
         this.xScale = d3.scaleLinear()
             .domain([0, 1])
             .range([0, this.width]);
 
-        // Y scale: will be updated when data is loaded (sqrt for readability)
         this.yScale = d3.scaleSqrt()
             .range([this.height, 0]);
 
@@ -66,18 +63,18 @@ class Histogram {
     }
 
     /**
-     * Compute and render histogram for the given volume data.
-     * Uses d3.bin() and d3 data joins with animated transitions.
+     * (Re)compute histogram bins and update the bars.
+     * Called whenever a new volume is loaded.
      */
     update(volume) {
-        // Use d3.bin() to create histogram bins from voxel density values
+        // bin the density values into 50 buckets
         const binGenerator = d3.bin()
             .domain([0, 1])
             .thresholds(50);
 
         const bins = binGenerator(volume.voxels);
 
-        // Update Y scale domain based on max bin count (skip first bin which often has huge air/background count)
+        // ignore first bin for Y scale (usually huge background count)
         const maxCount = d3.max(bins.slice(1), d => d.length);
         this.yScale.domain([0, maxCount]);
 

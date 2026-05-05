@@ -1,6 +1,7 @@
 /*
-* Vis 1 Task 1 - Volume Raycasting
-* Vertex shader: transforms vertices and passes world-space position to fragment shader.
+* Vertex shader for volume raycasting.
+* We need the world-space position of each fragment so the
+* fragment shader can construct a ray from camera through that point.
 */
 #ifndef GL_ES
 #version 330 es

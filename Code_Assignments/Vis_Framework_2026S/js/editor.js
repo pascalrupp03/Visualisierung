@@ -1,13 +1,8 @@
 /**
- * Vis 1 Task 5 - Interactive Editor
- *
- * Provides interactive controls for iso-value and surface color using d3.js.
- * Features:
- * - Draggable iso-value indicator coupled with the density histogram
- * - Color picker with 20 systematically selectable colors (HSL + white)
- * - Mode selector for MIP / First-Hit
- *
- * Uses d3-selection event handling (d3 v6+ API) and d3-color.
+ * Interactive editor for controlling the volume renderer.
+ * Lets the user pick iso-value (by dragging on the histogram),
+ * surface color (from a palette of 20 colors), and compositing mode.
+ * Built entirely with d3.js (v7 event API).
  */
 class Editor {
     constructor(containerSelector, onIsoValueChange, onColorChange, onModeChange) {
@@ -31,7 +26,7 @@ class Editor {
     }
 
     /**
-     * Build mode selector (MIP / First-Hit) using d3.
+     * Compositing mode dropdown.
      */
     _buildModeSelector() {
         const div = d3.select(this.container)
@@ -54,8 +49,8 @@ class Editor {
     }
 
     /**
-     * Build color picker with 20 systematically chosen colors using d3-color.
-     * 18 hues evenly spaced in HSL + white + black = 20 colors.
+     * Color palette with 20 systematically chosen colors.
+     * 18 hues evenly spaced + white + gray.
      */
     _buildColorPicker() {
         const div = d3.select(this.container)
@@ -109,8 +104,8 @@ class Editor {
     }
 
     /**
-     * Draw the iso-value indicator line on the histogram.
-     * Adds a draggable vertical line and circle that updates the iso-value.
+     * Draws a draggable iso-value indicator (line + handle) on the histogram.
+     * Dragging it left/right changes the iso-value in real-time.
      */
     _drawIsoLine() {
         if (!this.histogram) return;
@@ -185,7 +180,7 @@ class Editor {
     }
 
     /**
-     * Update the iso-value indicator position (e.g., when set externally).
+     * Move the iso-line to a given value (used for external sync).
      */
     updateIsoLine(value) {
         if (!this.histogram) return;
