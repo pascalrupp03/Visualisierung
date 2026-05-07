@@ -1,36 +1,18 @@
 ## How to Use
-
 Load one of the provided volume files through the GUI.
 Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel.
 
-## Current Program Capabilities
+The volume appears with First-Hit compositing mode by default.
 
-Compared to the initial framework state on `main`, the application now supports:
+The panel on the right contains three main controls:
 
-- GPU-based single-pass volume raycasting (instead of the initial dummy test shader)
-- Two compositing modes in real-time:
-    - MIP (Maximum Intensity Projection)
-    - First-Hit iso-surface rendering
-- Blinn-Phong shading for First-Hit surfaces (gradient-based normals)
-- Density histogram (d3.js) for the current dataset
-- Interactive editor controls:
-    - draggable iso-value indicator on top of the histogram
-    - compositing mode switch (MIP / First-Hit)
-    - 20-color palette for iso-surface color
-- Persistent editor state when loading a new dataset:
-    - selected iso-value, color, and mode are re-applied to the new shader instance
+- **Compositing Mode dropdown**: Switch between MIP (Maximum Intensity Projection) and First-Hit rendering modes
+- **Density Histogram**: Shows the distribution of voxel intensities in the data. The dotted line with the white circle is the iso-value indicator — drag it left or right to change the threshold (works for both MIP and First-Hit)
+- **Color Swatcher**: 20 colors to choose from. Click any swatch to change the iso-surface color (only affects First-Hit mode)
 
-Task 6 (multi-isosurface transfer function) is not implemented in the current branch.
+The step size for ray marching is computed automatically based on the volume dimensions (no manual adjustment needed).
 
-### Running the Application
 
-The application must be served from a web server (not opened directly via `file://`).
-
-- **WebStorm**: Open the project folder, then open `index.html` and click a browser icon in the top right.
-- **VS Code + Live Server**: Install the "Live Server" extension, right-click `index.html` → "Open with Live Server".
-- **Python**: Run `python -m http.server 8000` in the project folder, then open `http://localhost:8000` in Chrome.
-
-**Recommended browser:** Google Chrome with hardware acceleration enabled.
 
 ### Editor / Interaction Options
 
