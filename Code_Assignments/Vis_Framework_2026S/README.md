@@ -13,32 +13,6 @@ The panel on the right contains three main controls:
 The step size for ray marching is computed automatically based on the volume dimensions (no manual adjustment needed).
 
 
-
-### Editor / Interaction Options
-
-The editor panel is located to the right of the 3D viewport and provides the following controls:
-
-| Control | Action |
-|---------|--------|
-| **Compositing Mode** dropdown | Switch between MIP (Maximum Intensity Projection) and First-Hit rendering |
-| **Drag circle on histogram** | Change the iso-value by dragging the white circle/line indicator left or right on the density histogram |
-| **Color swatches** (20 colors) | Click a color swatch to change the iso-surface color. Colors are systematically selected via HSL color space (18 hues) + white + gray |
-
-### Volume Interaction
-
-| Input | Action |
-|-------|--------|
-| Left mouse button + drag | Rotate camera around volume |
-| Scroll wheel | Zoom in/out |
-
-### Notes
-
-- The density histogram is automatically recalculated and animated when a new data set is loaded.
-- The iso-value indicator on the histogram is coupled to the shader — changes are reflected in real-time.
-- The step size for ray marching is computed automatically based on the volume dimensions (no manual adjustment needed).
-- Ray/AABB intersection is used to compute where each camera ray enters and exits the volume bounding box. This defines the exact segment that is sampled during ray marching and is the standard/robust approach for single-pass box-proxy volume rendering.
-
-
 ## Framework Description
 
 This framework uses three.js and d3.js for volume rendering and setting the appearance, respectively. 
@@ -55,21 +29,6 @@ The following files are provided:
     * **testShader.js**: Example shader class demonstrating how to create and use a shader material 
     using external .essl files. Should not be used in the final submission.
     * **camera.js**: Simple orbit camera that moves nicely around our volumes. Does not need to be modified. 
-
-### Compliance Notes (Current Branch vs `main`)
-
-- **Not modified (as requested by framework description):**
-    - `three.js/build/three.js`
-    - `d3.js/d3.v7.js`
-    - `js/shader.js`
-    - `js/camera.js`
-- **Modified where expected by assignment:**
-    - `js/visvu.js` (scene setup, shader integration, histogram/editor wiring)
-    - new files in `js/` (`raycasterShader.js`, `histogram.js`, `editor.js`)
-    - new files in `shaders/` (`raycaster_vert.essl`, `raycaster_frag.essl`)
-    - `index.html` (script includes for new classes)
-    - `style.css` (editor styling)
-    - `README.md` and `CHANGELOG.md` (documentation)
     
 Created 2021 by Manuela Waldner, Diana Schalko, amd Laura Luidolt based on the VisVU Task 1 Qt framework 
 initially created by Johanna Schmidt, Tobias Klein, and Laura Luidolt. Updated 2022 and 2023 by Manuela Waldner. 
