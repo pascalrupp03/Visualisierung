@@ -108,10 +108,15 @@ async function resetVis(){
     volumeTexture.wrapR = THREE.ClampToEdgeWrapping;
     volumeTexture.needsUpdate = true;
 
-    // Create raycaster shader for single-pass volume rendering with MIP
+    // Create raycaster shader for single-pass volume rendering
     const volumeSize = new THREE.Vector3(volume.width, volume.height, volume.depth);
     raycasterShader = new RaycasterShader(volumeTexture, volumeSize);
     await raycasterShader.load();
+
+    // re-apply current editor settings so switching datasets keeps the selection
+    raycasterShader.setIsoValue(editor.isoValue);
+    raycasterShader.setSurfaceColor(editor.currentColor.r, editor.currentColor.g, editor.currentColor.b);
+    raycasterShader.setCompositingMode(editor.currentMode);
 
     // Render the bounding box of the volume; fragment shader performs raycasting
     const boxGeometry = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);

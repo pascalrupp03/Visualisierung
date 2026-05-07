@@ -26,10 +26,10 @@ vec3 worldToTexCoord(vec3 pos) {
     return (pos + uVolumeSize * 0.5) / uVolumeSize;
 }
 
-// Compute gradient using central differences (= surface normal)
-// ∇f(x,y,z) = 0.5 * (f(x-ε)-f(x+ε), f(y-ε)-f(y+ε), f(z-ε)-f(z+ε))
+// gradient via central differences - gives us the surface normal at a point
+// basically checking how much the density changes in each direction
 vec3 computeGradient(vec3 texCoord) {
-    vec3 epsilon = 1.0 / uVolumeSize; // step = one voxel
+    vec3 epsilon = 1.0 / uVolumeSize; // one voxel offset in each direction
 
     float dx = texture(uVolumeTexture, texCoord - vec3(epsilon.x, 0.0, 0.0)).r
              - texture(uVolumeTexture, texCoord + vec3(epsilon.x, 0.0, 0.0)).r;
@@ -43,10 +43,10 @@ vec3 computeGradient(vec3 texCoord) {
 
 // simple Blinn-Phong illumination
 vec3 phongShading(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 color) {
-    float ka = 0.2;
-    float kd = 0.7;
-    float ks = 0.5;
-    float shininess = 50.0;
+    float ka = 0.2;       // ambient - so you still see something in shadow areas
+    float kd = 0.7;       // diffuse - main contributor, makes shape visible
+    float ks = 0.5;       // specular - adds a bit of shiny highlight
+    float shininess = 50.0; // not too sharp, not too blurry - works ok for organic stuff
 
     vec3 ambient = ka * color;
     float diff = max(dot(normal, lightDir), 0.0);
@@ -54,12 +54,13 @@ vec3 phongShading(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 color) {
 
     vec3 halfDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfDir), 0.0), shininess);
-    vec3 specular = ks * spec * vec3(1.0);
+    vec3 specular = ks * spec * vec3(1.0); // white highlight regardless of surface color
 
     return ambient + diffuse + specular;
 }
 
 // slab method: find where ray enters/exits the axis-aligned box
+// uses inverse direction to avoid division (faster, handles edge cases with infinity)
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
     vec3 invDir = 1.0 / rayDir;
 

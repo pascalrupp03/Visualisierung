@@ -12,6 +12,9 @@ class Editor {
         this.onModeChange = onModeChange;
 
         this.isoValue = 0.3;
+        // remember current color so we can re-apply it when dataset changes
+        this.currentColor = { r: 1.0, g: 1.0, b: 1.0 };
+        this.currentMode = 1; // First-Hit
 
         this._buildModeSelector();
         this._buildColorPicker();
@@ -43,8 +46,8 @@ class Editor {
         select.append("option").attr("value", "1").attr("selected", true).text("First-Hit");
 
         select.on("change", (event) => {
-            const mode = parseInt(event.target.value);
-            this.onModeChange(mode);
+            this.currentMode = parseInt(event.target.value);
+            this.onModeChange(this.currentMode);
         });
     }
 
@@ -86,15 +89,13 @@ class Editor {
             .style("border", "2px solid transparent")
             .style("border-radius", "3px")
             .on("click", function(event, d) {
-                // Remove highlight from all swatches
                 swatchContainer.selectAll("div.swatch")
                     .style("border", "2px solid transparent");
-                // Highlight selected
                 d3.select(this)
                     .style("border", "2px solid white");
-                // Convert to RGB [0,1] and notify
                 const rgb = d3.rgb(d);
-                self.onColorChange(rgb.r / 255, rgb.g / 255, rgb.b / 255);
+                self.currentColor = { r: rgb.r / 255, g: rgb.g / 255, b: rgb.b / 255 };
+                self.onColorChange(self.currentColor.r, self.currentColor.g, self.currentColor.b);
             });
 
         // Select white by default (second to last)
