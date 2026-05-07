@@ -3,6 +3,25 @@
 Load one of the provided volume files through the GUI.
 Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel.
 
+## Current Program Capabilities
+
+Compared to the initial framework state on `main`, the application now supports:
+
+- GPU-based single-pass volume raycasting (instead of the initial dummy test shader)
+- Two compositing modes in real-time:
+    - MIP (Maximum Intensity Projection)
+    - First-Hit iso-surface rendering
+- Blinn-Phong shading for First-Hit surfaces (gradient-based normals)
+- Density histogram (d3.js) for the current dataset
+- Interactive editor controls:
+    - draggable iso-value indicator on top of the histogram
+    - compositing mode switch (MIP / First-Hit)
+    - 20-color palette for iso-surface color
+- Persistent editor state when loading a new dataset:
+    - selected iso-value, color, and mode are re-applied to the new shader instance
+
+Task 6 (multi-isosurface transfer function) is not implemented in the current branch.
+
 ### Running the Application
 
 The application must be served from a web server (not opened directly via `file://`).
@@ -35,6 +54,7 @@ The editor panel is located to the right of the 3D viewport and provides the fol
 - The density histogram is automatically recalculated and animated when a new data set is loaded.
 - The iso-value indicator on the histogram is coupled to the shader — changes are reflected in real-time.
 - The step size for ray marching is computed automatically based on the volume dimensions (no manual adjustment needed).
+- Ray/AABB intersection is used to compute where each camera ray enters and exits the volume bounding box. This defines the exact segment that is sampled during ray marching and is the standard/robust approach for single-pass box-proxy volume rendering.
 
 
 ## Framework Description
@@ -53,6 +73,21 @@ The following files are provided:
     * **testShader.js**: Example shader class demonstrating how to create and use a shader material 
     using external .essl files. Should not be used in the final submission.
     * **camera.js**: Simple orbit camera that moves nicely around our volumes. Does not need to be modified. 
+
+### Compliance Notes (Current Branch vs `main`)
+
+- **Not modified (as requested by framework description):**
+    - `three.js/build/three.js`
+    - `d3.js/d3.v7.js`
+    - `js/shader.js`
+    - `js/camera.js`
+- **Modified where expected by assignment:**
+    - `js/visvu.js` (scene setup, shader integration, histogram/editor wiring)
+    - new files in `js/` (`raycasterShader.js`, `histogram.js`, `editor.js`)
+    - new files in `shaders/` (`raycaster_vert.essl`, `raycaster_frag.essl`)
+    - `index.html` (script includes for new classes)
+    - `style.css` (editor styling)
+    - `README.md` and `CHANGELOG.md` (documentation)
     
 Created 2021 by Manuela Waldner, Diana Schalko, amd Laura Luidolt based on the VisVU Task 1 Qt framework 
 initially created by Johanna Schmidt, Tobias Klein, and Laura Luidolt. Updated 2022 and 2023 by Manuela Waldner. 
