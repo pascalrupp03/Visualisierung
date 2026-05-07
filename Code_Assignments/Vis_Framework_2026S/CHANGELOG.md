@@ -1,5 +1,33 @@
 # Änderungsprotokoll / Changelog
 
+## Vergleich: Start-Framework (`main`) -> Aktueller Branch
+
+### Geänderte/neu hinzugefügte Dateien (High-Level)
+
+- `js/visvu.js`: Von Dummy-Testshader auf Raycasting-Pipeline umgestellt, Histogram/Editor angebunden
+- `js/raycasterShader.js` (neu): Eigene Shader-Klasse mit Uniform-Management
+- `js/histogram.js` (neu): Dichtehistogramm mit d3
+- `js/editor.js` (neu): Interaktion für Iso-Wert, Farbe, Modus
+- `shaders/raycaster_vert.essl` (neu): Übergabe von World-Position an Fragment-Shader
+- `shaders/raycaster_frag.essl` (neu): Ray/AABB, MIP, First-Hit, Gradienten, Blinn-Phong
+- `index.html`: Neue Skript-Referenzen (`raycasterShader.js`, `histogram.js`, `editor.js`), `testShader.js` in finaler Variante nicht mehr eingebunden
+- `style.css`: Editor-/Palette-/Indicator-Styles
+- `README.md`: Nutzung + Features dokumentiert
+- `CHANGELOG.md` (diese Datei): Umsetzung pro Task dokumentiert
+
+### Unverändert gelassen (laut Framework-Vorgaben)
+
+- `three.js/build/three.js`
+- `d3.js/d3.v7.js`
+- `js/shader.js`
+- `js/camera.js`
+
+### Warum diese Änderungen notwendig waren
+
+- Der Startcode rendert nur eine Box mit Testshader; für die Aufgaben musste auf echtes Volumenraycasting umgestellt werden.
+- Für Task 2-5 waren d3-basierte UI-Elemente (Histogramm + Editor) erforderlich.
+- Die Trennung in neue Klassen/Dateien hält die Änderungen im Sinne der Framework-Beschreibung strukturiert.
+
 ## Task 1: Direct Volume Rendering (Raycasting mit MIP)
 
 ### Neue Dateien
@@ -22,7 +50,7 @@
 - **Methode**: Single-Pass Raycasting (Box-Geometrie als Proxy)
 - **Ray/AABB Intersection**: Branchless Slab Method nach Tavian Barnes (precomputed inverse direction, nur min/max, keine Branches/Divisions)
 - **Compositing**: MIP — maximaler Dichtewert entlang des Strahls bestimmt Fragmentfarbe
-- **Sampling Rate**: `diagonal / (2 * maxDimension)` ≈ 1 Sample pro Voxel
+- **Sampling Rate**: im aktuellen Stand für bessere Qualität auf `diagonal / (3 * maxDimension)` erhöht (statt `2 * maxDimension`)
 - **Texturkoordinaten**: World-Position → [0,1]³ via `(pos + size*0.5) / size`
 - **D3.js**: Nicht verwendet (nicht relevant für GPU-Rendering)
 
@@ -104,6 +132,20 @@
 | Lichtrichtung | Headlight (=View) | Garantiert immer beleuchtete Oberfläche unabhängig vom Kamerawinkel — kein "dunkle Seite" Problem |
 | Step Size | diagonal/3N | Kompromiss zwischen Performance und Bildqualität — weniger Banding-Artefakte als diagonal/2N |
 
+### Sinnvolle Parameter-Ranges (praktische Orientierung)
+
+| Parameter | Aktuell | Typischer Bereich | Wirkung bei Änderung |
+|-----------|---------|-------------------|----------------------|
+| `uIsoValue` | 0.3 | 0.05 - 0.80 | Niedriger: mehr/rauschigere Strukturen. Höher: nur dichtere Strukturen, ggf. weniger Treffer. |
+| `ka` | 0.2 | 0.05 - 0.30 | Höher macht Schattenbereiche heller/flacher, niedriger erhöht Kontrast. |
+| `kd` | 0.7 | 0.50 - 0.90 | Höher betont Form über Lambert-Anteil, zu hoch kann Highlights verdrängen. |
+| `ks` | 0.5 | 0.10 - 0.70 | Höher verstärkt Glanzpunkte; zu hoch wirkt schnell künstlich. |
+| `shininess` | 50 | 10 - 100 | Klein: breite, matte Highlights. Groß: kleine, scharfe Highlights. |
+| Schrittweite (`stepSize`) | `diag/(3N)` | `diag/(2N)` bis `diag/(5N)` | Kleinere Schrittweite = bessere Qualität, aber deutlich mehr Samples/Rechenzeit. |
+| Histogram-Bins | 50 | 32 - 96 | Mehr Bins: feinere Verteilung, aber unruhiger; weniger Bins: glatter, gröber. |
+
+Hinweis: Diese Bereiche sind keine harten Grenzen, sondern sinnvolle Startwerte für Datensätze im Stil der Übung.
+
 ---
 
 ## Task 5: Interactive Editor
@@ -130,6 +172,7 @@
 - **Histogram-Kopplung**: Iso-Linie bewegt sich synchron mit dem Slider (beide Richtungen)
 - **20 Farben**: 18 HSL-Farben (Hue 0-340°, S=100%, L=50%) + Weiß + Hellgrau
 - **Draggable Indicator**: `d3.drag()` mit clamping auf Histogram-Breite, live-Update des Iso-Werts
+- **State-Persistenz bei neuem Datensatz**: Aktuell ausgewählte Farbe, Iso-Wert und Modus werden nach Shader-Neuaufbau wieder gesetzt (verhindert ungewollten Reset auf Default-Weiß)
 
 ---
 
