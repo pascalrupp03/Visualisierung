@@ -67,10 +67,10 @@ class Histogram {
      * Called whenever a new volume is loaded.
      */
     update(volume) {
-        // bin the density values into 50 buckets
+        // 150 bins is a good middle ground: smoother than 50/100, but less noisy than 200
         const binGenerator = d3.bin()
             .domain([0, 1])
-            .thresholds(50);
+            .thresholds(150);
 
         const bins = binGenerator(volume.voxels);
 

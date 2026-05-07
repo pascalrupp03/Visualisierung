@@ -29,8 +29,11 @@ let editor = null;
 function init() {
     // volume viewer
     container = document.getElementById("viewContainer");
-    canvasWidth = window.innerWidth * 0.7;
-    canvasHeight = window.innerHeight * 0.7;
+    // responsive canvas size: adjust based on available space
+    const maxWidth = window.innerWidth * 0.70;
+    const maxHeight = window.innerHeight * 0.68;
+    canvasWidth = Math.min(maxWidth, maxHeight * 1.3);
+    canvasHeight = Math.min(maxHeight, canvasWidth / 1.3);
 
     // WebGL renderer
     renderer = new THREE.WebGLRenderer();
