@@ -85,7 +85,9 @@ void main() {
     vec3 rayOrigin = cameraPosition;
     vec3 rayDir = normalize(vWorldPosition - cameraPosition);
 
-    // find entry/exit points with slab method
+    // find entry/exit points with slab method (Ray/AABB)
+    // we need this first, otherwise we don't know which part of the ray is inside the volume box
+    // so we only sample between tmin and tmax and don't waste samples outside
     vec2 tHit = intersectAABB(rayOrigin, rayDir, boxMin, boxMax);
     float tmin = tHit.x;
     float tmax = tHit.y;
