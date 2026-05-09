@@ -10,7 +10,6 @@ We're using data mostly from official Austrian government's sources:
 
 - **Rental prices by district** from [wien.gv.at](https://www.wien.gv.at/statistik/gebaeude-wohnungen) — so I can see which areas are most expensive in Vienna.
 - **Housing costs across Austria** from [statistik.at](https://www.statistik.at/statistiken/bevoelkerung-und-soziales/wohnen/wohnkosten) — to compare Vienna to other cities.
-There is also a global comparision found at [globalpropertyguidde.com](https://www.globalpropertyguide.com/europe/austria/price-history).
 - **Income/wage data** from [Statistics Austria](https://www.statistik.at/statistiken/bevoelkerung-und-soziales/einkommen-und-soziale-lage/allgemeiner-einkommensbericht) — to actually see if young people's salaries match the rent they have to pay.
 - **Inflation data (CPI/HVPI)** from [Statistics Austria](https://www.statistik.at/statistiken/volkswirtschaft-und-oeffentliche-finanzen/preise-und-preisindizes/verbraucherpreisindex-vpi/hvpi) — so I can adjust everything for real values over time, not just nominal numbers.
 - **Population and student numbers** from Statistics Austria — to understand how much demand is driving prices up.
