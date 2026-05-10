@@ -33,3 +33,5 @@ to reach a meaningful format.
 | Personal Overview | Line chart (salary vs. cost of living over decades), percentile indicator | Yes - year slider |
 | Cost of Living | Stacked area / grouped bar chart, % of salary used for living costs | Yes - toggle categories |
 | Geographic | Heat map (rent price evolution by region) | No - static |
+
+So to sum up in general 3 to 4 elements with user providing information at the beginnen - the salary can be given as a range for example or a single value - we'll have to try both to see what works better.
