@@ -21,6 +21,10 @@ to jump back):
 A **persistent bottom navigation bar** allows users to move freely between
 views after completing the input step or just scrolling down the websites with some animations.
 
+For wireframes we also used google sheets. The values do not represent acutal values - we here want to inform you
+that these values are completely random generated using math.random() from js and casting to an integer and ajusted
+to reach a meaningful format.
+
 ## Visualizations per View
 
 | View | Visualization Type | Interactive |
