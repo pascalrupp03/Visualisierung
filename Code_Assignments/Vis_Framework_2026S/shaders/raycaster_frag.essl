@@ -18,6 +18,7 @@ uniform sampler3D uVolumeTexture;
 uniform float uIsoValue;
 uniform int uCompositingMode; // 0 = MIP, 1 = First-Hit
 uniform vec3 uSurfaceColor;
+uniform float uAlpha;
 
 out vec4 fragColor;
 
@@ -99,9 +100,14 @@ void main() {
     // if camera is inside the box, start from 0
     tmin = max(tmin, 0.0);
 
-    // step size: we want roughly 3 samples per voxel to avoid banding
-    float maxDim = max(uVolumeSize.x, max(uVolumeSize.y, uVolumeSize.z));
-    float stepSize = length(uVolumeSize) / (maxDim * 3.0);
+    // step size: computed per-ray based on voxel spacing and ray direction
+    // guarantees exactly one voxel sampled per step along the most constrained axis
+    // one voxel = 1 world unit (box geometry matches voxel count)
+    vec3 absDir = abs(rayDir);
+    // for each axis, how far along the ray to cross one voxel: 1.0 / |dir_i|
+    // take the minimum so we never skip a voxel boundary in any axis
+    vec3 dt = vec3(1.0) / max(absDir, vec3(1e-8));
+    float stepSize = min(dt.x, min(dt.y, dt.z));
 
     // march along the ray
     float t = tmin;
@@ -134,7 +140,7 @@ void main() {
                 vec3 lightDir = viewDir; // headlight
 
                 vec3 shadedColor = phongShading(normal, viewDir, lightDir, uSurfaceColor);
-                fragColor = vec4(shadedColor, 1.0);
+                fragColor = vec4(shadedColor, uAlpha);
                 return;
             }
             prevDensity = density;
@@ -144,7 +150,7 @@ void main() {
     }
 
     if (uCompositingMode == 0) {
-        fragColor = vec4(vec3(maxIntensity), 1.0);
+        fragColor = vec4(vec3(maxIntensity), uAlpha);
     } else {
         discard; // no surface hit
     }

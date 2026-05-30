@@ -8,11 +8,13 @@ class RaycasterShader extends Shader {
         super("raycaster_vert", "raycaster_frag");
         // we need to see the inside of the box when the camera is outside
         this.material.side = THREE.BackSide;
+        this.material.transparent = true;
         this.setUniform("uVolumeTexture", volumeTexture);
         this.setUniform("uVolumeSize", volumeSize);
         this.setUniform("uIsoValue", 0.3);
         this.setUniform("uCompositingMode", 1); // 0=MIP, 1=First-Hit
         this.setUniform("uSurfaceColor", new THREE.Vector3(1.0, 1.0, 1.0));
+        this.setUniform("uAlpha", 1.0);
     }
 
     setIsoValue(value) {
@@ -26,5 +28,9 @@ class RaycasterShader extends Shader {
 
     setSurfaceColor(r, g, b) {
         this.setUniform("uSurfaceColor", new THREE.Vector3(r, g, b));
+    }
+
+    setAlpha(value) {
+        this.setUniform("uAlpha", value);
     }
 }

@@ -69,6 +69,13 @@ function init() {
                 raycasterShader.setCompositingMode(mode);
                 requestAnimationFrame(paint);
             }
+        },
+        // onAlphaChange
+        function(alpha) {
+            if (raycasterShader) {
+                raycasterShader.setAlpha(alpha);
+                requestAnimationFrame(paint);
+            }
         }
     );
     editor.setHistogram(histogram);
@@ -120,6 +127,7 @@ async function resetVis(){
     raycasterShader.setIsoValue(editor.isoValue);
     raycasterShader.setSurfaceColor(editor.currentColor.r, editor.currentColor.g, editor.currentColor.b);
     raycasterShader.setCompositingMode(editor.currentMode);
+    raycasterShader.setAlpha(editor.currentAlpha);
 
     // Render the bounding box of the volume; fragment shader performs raycasting
     const boxGeometry = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);

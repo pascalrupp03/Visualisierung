@@ -5,18 +5,21 @@
  * Built entirely with d3.js (v7 event API).
  */
 class Editor {
-    constructor(containerSelector, onIsoValueChange, onColorChange, onModeChange) {
+    constructor(containerSelector, onIsoValueChange, onColorChange, onModeChange, onAlphaChange) {
         this.container = containerSelector;
         this.onIsoValueChange = onIsoValueChange;
         this.onColorChange = onColorChange;
         this.onModeChange = onModeChange;
+        this.onAlphaChange = onAlphaChange;
 
         this.isoValue = 0.3;
         // remember current color so we can re-apply it when dataset changes
         this.currentColor = { r: 1.0, g: 1.0, b: 1.0 };
         this.currentMode = 1; // First-Hit
+        this.currentAlpha = 1.0;
 
         this._buildModeSelector();
+        this._buildAlphaSlider();
         this._buildColorPicker();
     }
 
@@ -49,6 +52,37 @@ class Editor {
             this.currentMode = parseInt(event.target.value);
             this.onModeChange(this.currentMode);
         });
+    }
+
+    /**
+     * Alpha (opacity) slider.
+     */
+    _buildAlphaSlider() {
+        const div = d3.select(this.container)
+            .append("div")
+            .attr("class", "editor-section");
+
+        div.append("label")
+            .text("Opacity: ");
+
+        const valueLabel = div.append("span")
+            .attr("id", "editorAlphaValue")
+            .text("1.00");
+
+        const self = this;
+        div.append("input")
+            .attr("type", "range")
+            .attr("id", "editorAlphaSlider")
+            .attr("min", "0")
+            .attr("max", "1")
+            .attr("step", "0.01")
+            .attr("value", "1")
+            .style("width", "100%")
+            .on("input", function() {
+                self.currentAlpha = parseFloat(this.value);
+                valueLabel.text(self.currentAlpha.toFixed(2));
+                self.onAlphaChange(self.currentAlpha);
+            });
     }
 
     /**
