@@ -1,9 +1,6 @@
-/**
- * Interactive editor for controlling the volume renderer.
- * Lets the user pick iso-value (by dragging on the histogram),
- * surface color (from a palette of 20 colors), and compositing mode.
- * Built entirely with d3.js (v7 event API).
- */
+// Editor: UI controls for iso-value, color, mode, opacity.
+// Uses d3 for DOM manipulation and drag interaction.
+
 class Editor {
     constructor(containerSelector, onIsoValueChange, onColorChange, onModeChange, onAlphaChange) {
         this.container = containerSelector;
@@ -13,9 +10,8 @@ class Editor {
         this.onAlphaChange = onAlphaChange;
 
         this.isoValue = 0.3;
-        // remember current color so we can re-apply it when dataset changes
         this.currentColor = { r: 1.0, g: 1.0, b: 1.0 };
-        this.currentMode = 1; // First-Hit
+        this.currentMode = 1; // 0=MIP, 1=First-Hit
         this.currentAlpha = 1.0;
 
         this._buildModeSelector();
@@ -23,24 +19,18 @@ class Editor {
         this._buildColorPicker();
     }
 
-    /**
-     * Set reference to histogram so we can draw the iso-line on it.
-     */
     setHistogram(histogram) {
         this.histogram = histogram;
         this._drawIsoLine();
     }
 
-    /**
-     * Compositing mode dropdown.
-     */
+    // mode dropdown (MIP / First-Hit)
     _buildModeSelector() {
         const div = d3.select(this.container)
             .append("div")
             .attr("class", "editor-section");
 
-        div.append("label")
-            .text("Compositing Mode: ");
+        div.append("label").text("Compositing Mode: ");
 
         const select = div.append("select")
             .attr("id", "editorModeSelect");
@@ -54,16 +44,13 @@ class Editor {
         });
     }
 
-    /**
-     * Alpha (opacity) slider.
-     */
+    // opacity slider [0..1]
     _buildAlphaSlider() {
         const div = d3.select(this.container)
             .append("div")
             .attr("class", "editor-section");
 
-        div.append("label")
-            .text("Opacity: ");
+        div.append("label").text("Opacity: ");
 
         const valueLabel = div.append("span")
             .attr("id", "editorAlphaValue")
@@ -73,9 +60,7 @@ class Editor {
         div.append("input")
             .attr("type", "range")
             .attr("id", "editorAlphaSlider")
-            .attr("min", "0")
-            .attr("max", "1")
-            .attr("step", "0.01")
+            .attr("min", "0").attr("max", "1").attr("step", "0.01")
             .attr("value", "1")
             .style("width", "100%")
             .on("input", function() {
@@ -85,26 +70,20 @@ class Editor {
             });
     }
 
-    /**
-     * Color palette with 20 systematically chosen colors.
-     * 18 hues evenly spaced + white + gray.
-     */
+    // 20 color swatches: 18 evenly spaced hues + white + gray
     _buildColorPicker() {
         const div = d3.select(this.container)
             .append("div")
             .attr("class", "editor-section color-picker");
 
-        div.append("label")
-            .text("Surface Color:");
+        div.append("label").text("Surface Color:");
 
-        // Generate 20 colors: 18 hues (HSL, s=100%, l=50%) + white + light gray
         const colors = [];
         for (let i = 0; i < 18; i++) {
-            const hue = (i / 18) * 360;
-            colors.push(d3.hsl(hue, 1, 0.5));
+            colors.push(d3.hsl((i / 18) * 360, 1, 0.5));
         }
-        colors.push(d3.rgb(255, 255, 255)); // white
-        colors.push(d3.rgb(180, 180, 180)); // light gray
+        colors.push(d3.rgb(255, 255, 255));
+        colors.push(d3.rgb(180, 180, 180));
 
         const swatchContainer = div.append("div")
             .attr("class", "swatch-container");
@@ -125,23 +104,20 @@ class Editor {
             .on("click", function(event, d) {
                 swatchContainer.selectAll("div.swatch")
                     .style("border", "2px solid transparent");
-                d3.select(this)
-                    .style("border", "2px solid white");
+                d3.select(this).style("border", "2px solid white");
+
                 const rgb = d3.rgb(d);
                 self.currentColor = { r: rgb.r / 255, g: rgb.g / 255, b: rgb.b / 255 };
                 self.onColorChange(self.currentColor.r, self.currentColor.g, self.currentColor.b);
             });
 
-        // Select white by default (second to last)
+        // white selected by default
         swatchContainer.selectAll("div.swatch")
             .filter((d, i) => i === 18)
             .style("border", "2px solid white");
     }
 
-    /**
-     * Draws a draggable iso-value indicator (line + handle) on the histogram.
-     * Dragging it left/right changes the iso-value in real-time.
-     */
+    // draggable iso-value line on the histogram
     _drawIsoLine() {
         if (!this.histogram) return;
 
@@ -150,33 +126,30 @@ class Editor {
         const height = this.histogram.height;
         const self = this;
 
-        // Iso-value line group
         const isoGroup = svg.append("g")
             .attr("class", "iso-indicator");
 
-        // Vertical line
+        // dashed vertical line
         isoGroup.append("line")
             .attr("class", "iso-line")
             .attr("x1", xScale(this.isoValue))
             .attr("x2", xScale(this.isoValue))
-            .attr("y1", 0)
-            .attr("y2", height)
+            .attr("y1", 0).attr("y2", height)
             .attr("stroke", "white")
             .attr("stroke-width", 2)
             .attr("stroke-dasharray", "4,2");
 
-        // Draggable circle handle at the top
+        // drag handle
         isoGroup.append("circle")
             .attr("class", "iso-handle")
             .attr("cx", xScale(this.isoValue))
-            .attr("cy", 0)
-            .attr("r", 8)
+            .attr("cy", 0).attr("r", 8)
             .attr("fill", "white")
             .attr("stroke", "gray")
             .attr("stroke-width", 1)
             .style("cursor", "ew-resize");
 
-        // Iso-value label
+        // value label above the handle
         isoGroup.append("text")
             .attr("class", "iso-label")
             .attr("x", xScale(this.isoValue))
@@ -186,42 +159,29 @@ class Editor {
             .attr("font-size", "11px")
             .text(this.isoValue.toFixed(2));
 
-        // Drag behavior using d3.drag() (d3 v6+ event API)
+        // d3 drag
         const drag = d3.drag()
             .on("drag", function(event) {
-                // Clamp x position to histogram width
                 const x = Math.max(0, Math.min(event.x, xScale.range()[1]));
                 const newIso = xScale.invert(x);
-
                 self.isoValue = newIso;
 
-                // Update visual position
-                isoGroup.select(".iso-line")
-                    .attr("x1", x)
-                    .attr("x2", x);
-                isoGroup.select(".iso-handle")
-                    .attr("cx", x);
-                isoGroup.select(".iso-label")
-                    .attr("x", x)
-                    .text(newIso.toFixed(2));
+                isoGroup.select(".iso-line").attr("x1", x).attr("x2", x);
+                isoGroup.select(".iso-handle").attr("cx", x);
+                isoGroup.select(".iso-label").attr("x", x).text(newIso.toFixed(2));
 
-                // Notify callback
                 self.onIsoValueChange(newIso);
             });
 
-        // Apply drag to the line and handle (larger hit area)
         isoGroup.call(drag);
         isoGroup.style("cursor", "ew-resize");
     }
 
-    /**
-     * Move the iso-line to a given value (used for external sync).
-     */
+    // external update of the iso-line position
     updateIsoLine(value) {
         if (!this.histogram) return;
         this.isoValue = value;
-        const xScale = this.histogram.xScale;
-        const x = xScale(value);
+        const x = this.histogram.xScale(value);
 
         const svg = this.histogram.svg;
         svg.select(".iso-line").attr("x1", x).attr("x2", x);

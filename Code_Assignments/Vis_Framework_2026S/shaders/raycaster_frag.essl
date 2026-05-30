@@ -1,7 +1,7 @@
 /*
-* Fragment shader for single-pass volume raycasting.
-* Supports two compositing modes: MIP and First-Hit (with Phong shading).
-* Ray/box intersection is done via slab method (see tavianator.com/2011/ray_box.html).
+* Fragment shader: single-pass volume raycasting.
+* MIP + First-Hit (Blinn-Phong shaded iso-surface).
+* Ray/box intersection via slab method.
 */
 #ifndef GL_ES
 #version 330 es
@@ -16,38 +16,38 @@ in vec3 vWorldPosition;
 uniform vec3 uVolumeSize;
 uniform sampler3D uVolumeTexture;
 uniform float uIsoValue;
-uniform int uCompositingMode; // 0 = MIP, 1 = First-Hit
+uniform int uCompositingMode;
 uniform vec3 uSurfaceColor;
 uniform float uAlpha;
 
 out vec4 fragColor;
 
-// world pos -> texture coords (box is centered at origin, so we shift by half)
+// box is centered at origin, so shift by half to get [0,1] texture coords
 vec3 worldToTexCoord(vec3 pos) {
     return (pos + uVolumeSize * 0.5) / uVolumeSize;
 }
 
-// gradient via central differences - gives us the surface normal at a point
-// basically checking how much the density changes in each direction
+// central differences gradient - sample one voxel in each direction
+// result points away from the surface (used as normal for shading)
 vec3 computeGradient(vec3 texCoord) {
-    vec3 epsilon = 1.0 / uVolumeSize; // one voxel offset in each direction
+    vec3 eps = 1.0 / uVolumeSize; // one voxel in texture space
 
-    float dx = texture(uVolumeTexture, texCoord - vec3(epsilon.x, 0.0, 0.0)).r
-             - texture(uVolumeTexture, texCoord + vec3(epsilon.x, 0.0, 0.0)).r;
-    float dy = texture(uVolumeTexture, texCoord - vec3(0.0, epsilon.y, 0.0)).r
-             - texture(uVolumeTexture, texCoord + vec3(0.0, epsilon.y, 0.0)).r;
-    float dz = texture(uVolumeTexture, texCoord - vec3(0.0, 0.0, epsilon.z)).r
-             - texture(uVolumeTexture, texCoord + vec3(0.0, 0.0, epsilon.z)).r;
+    float dx = texture(uVolumeTexture, texCoord - vec3(eps.x, 0, 0)).r
+             - texture(uVolumeTexture, texCoord + vec3(eps.x, 0, 0)).r;
+    float dy = texture(uVolumeTexture, texCoord - vec3(0, eps.y, 0)).r
+             - texture(uVolumeTexture, texCoord + vec3(0, eps.y, 0)).r;
+    float dz = texture(uVolumeTexture, texCoord - vec3(0, 0, eps.z)).r
+             - texture(uVolumeTexture, texCoord + vec3(0, 0, eps.z)).r;
 
     return 0.5 * vec3(dx, dy, dz);
 }
 
-// simple Blinn-Phong illumination
+// Blinn-Phong with headlight
 vec3 phongShading(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 color) {
-    float ka = 0.2;       // ambient - so you still see something in shadow areas
-    float kd = 0.7;       // diffuse - main contributor, makes shape visible
-    float ks = 0.5;       // specular - adds a bit of shiny highlight
-    float shininess = 50.0; // not too sharp, not too blurry - works ok for organic stuff
+    float ka = 0.2;
+    float kd = 0.7;
+    float ks = 0.5;
+    float shininess = 50.0;
 
     vec3 ambient = ka * color;
     float diff = max(dot(normal, lightDir), 0.0);
@@ -55,16 +55,14 @@ vec3 phongShading(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 color) {
 
     vec3 halfDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfDir), 0.0), shininess);
-    vec3 specular = ks * spec * vec3(1.0); // white highlight regardless of surface color
+    vec3 specular = ks * spec * vec3(1.0);
 
     return ambient + diffuse + specular;
 }
 
-// slab method: find where ray enters/exits the axis-aligned box
-// uses inverse direction to avoid division (faster, handles edge cases with infinity)
+// slab method ray/AABB intersection
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
     vec3 invDir = 1.0 / rayDir;
-
     vec3 t1 = (boxMin - rayOrigin) * invDir;
     vec3 t2 = (boxMax - rayOrigin) * invDir;
 
@@ -73,46 +71,32 @@ vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
 
     float tmin = max(max(tminv.x, tminv.y), tminv.z);
     float tmax = min(min(tmaxv.x, tmaxv.y), tmaxv.z);
-
     return vec2(tmin, tmax);
 }
 
 void main() {
-    // bounding box centered at origin
     vec3 boxMin = -uVolumeSize * 0.5;
-    vec3 boxMax = uVolumeSize * 0.5;
+    vec3 boxMax =  uVolumeSize * 0.5;
 
-    // ray from camera through this fragment
     vec3 rayOrigin = cameraPosition;
     vec3 rayDir = normalize(vWorldPosition - cameraPosition);
 
-    // find entry/exit points with slab method (Ray/AABB)
-    // we need this first, otherwise we don't know which part of the ray is inside the volume box
-    // so we only sample between tmin and tmax and don't waste samples outside
     vec2 tHit = intersectAABB(rayOrigin, rayDir, boxMin, boxMax);
     float tmin = tHit.x;
     float tmax = tHit.y;
 
-    if (tmax < tmin || tmax < 0.0) {
-        discard;
-    }
+    if (tmax < tmin || tmax < 0.0) discard;
+    tmin = max(tmin, 0.0); // camera inside box -> start at 0
 
-    // if camera is inside the box, start from 0
-    tmin = max(tmin, 0.0);
-
-    // step size: computed per-ray based on voxel spacing and ray direction
-    // guarantees exactly one voxel sampled per step along the most constrained axis
-    // one voxel = 1 world unit (box geometry matches voxel count)
+    // per-ray step size: for each axis, 1/|dir_i| = distance along ray to cross one voxel.
+    // take the min so we never skip a voxel boundary in any direction.
     vec3 absDir = abs(rayDir);
-    // for each axis, how far along the ray to cross one voxel: 1.0 / |dir_i|
-    // take the minimum so we never skip a voxel boundary in any axis
-    vec3 dt = vec3(1.0) / max(absDir, vec3(1e-8));
+    vec3 dt = vec3(1.0) / max(absDir, vec3(1e-8)); // 1e-8 avoids div by zero for axis-aligned rays
     float stepSize = min(dt.x, min(dt.y, dt.z));
 
-    // march along the ray
     float t = tmin;
     float maxIntensity = 0.0;
-    float prevDensity = -1.0;
+    float prevDensity = -1.0; // -1 = no previous sample yet
 
     while (t < tmax) {
         vec3 samplePos = rayOrigin + t * rayDir;
@@ -120,38 +104,34 @@ void main() {
         float density = texture(uVolumeTexture, texCoord).r;
 
         if (uCompositingMode == 0) {
-            // MIP: just keep track of the highest value we see
+            // MIP
             maxIntensity = max(maxIntensity, density);
         } else {
-            // First-Hit: did we cross the iso-surface between this step and the last?
+            // First-Hit: check iso-surface crossing
             if (prevDensity >= 0.0 &&
                 ((prevDensity < uIsoValue && density >= uIsoValue) ||
                  (prevDensity >= uIsoValue && density < uIsoValue))) {
 
-                // interpolate to get a more precise hit location
-                float interpFactor = (uIsoValue - prevDensity) / (density - prevDensity);
-                vec3 hitPos = rayOrigin + (t - stepSize + interpFactor * stepSize) * rayDir;
-                vec3 hitTexCoord = worldToTexCoord(hitPos);
+                // linear interpolation between prev and current sample to find exact crossing
+                float frac = (uIsoValue - prevDensity) / (density - prevDensity);
+                vec3 hitPos = rayOrigin + (t - stepSize + frac * stepSize) * rayDir;
+                vec3 hitTC = worldToTexCoord(hitPos);
 
-                // compute normal from gradient and shade the surface
-                vec3 gradient = computeGradient(hitTexCoord);
-                vec3 normal = normalize(gradient);
-                vec3 viewDir = normalize(cameraPosition - hitPos);
-                vec3 lightDir = viewDir; // headlight
+                vec3 grad = computeGradient(hitTC);
+                vec3 n = normalize(grad);
+                vec3 v = normalize(cameraPosition - hitPos);
 
-                vec3 shadedColor = phongShading(normal, viewDir, lightDir, uSurfaceColor);
-                fragColor = vec4(shadedColor, uAlpha);
+                fragColor = vec4(phongShading(n, v, v, uSurfaceColor), uAlpha);
                 return;
             }
             prevDensity = density;
         }
-
         t += stepSize;
     }
 
     if (uCompositingMode == 0) {
         fragColor = vec4(vec3(maxIntensity), uAlpha);
     } else {
-        discard; // no surface hit
+        discard;
     }
 }

@@ -1,7 +1,5 @@
 /*
-* Vertex shader for volume raycasting.
-* We need the world-space position of each fragment so the
-* fragment shader can construct a ray from camera through that point.
+* Vertex shader for raycasting - passes world position to fragment shader.
 */
 #ifndef GL_ES
 #version 330 es

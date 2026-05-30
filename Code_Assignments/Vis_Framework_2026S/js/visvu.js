@@ -29,7 +29,6 @@ let editor = null;
 function init() {
     // volume viewer
     container = document.getElementById("viewContainer");
-    // responsive canvas size: adjust based on available space
     const maxWidth = window.innerWidth * 0.70;
     const maxHeight = window.innerHeight * 0.68;
     canvasWidth = Math.min(maxWidth, maxHeight * 1.3);
@@ -44,38 +43,20 @@ function init() {
     fileInput = document.getElementById("upload");
     fileInput.addEventListener('change', readFile);
 
-    // initialize histogram in the transfer function container
     histogram = new Histogram("#tfContainer");
 
-    // initialize interactive editor with d3
     editor = new Editor("#tfContainer",
-        // onIsoValueChange
         function(val) {
-            if (raycasterShader) {
-                raycasterShader.setIsoValue(val);
-                requestAnimationFrame(paint);
-            }
+            if (raycasterShader) { raycasterShader.setIsoValue(val); requestAnimationFrame(paint); }
         },
-        // onColorChange
         function(r, g, b) {
-            if (raycasterShader) {
-                raycasterShader.setSurfaceColor(r, g, b);
-                requestAnimationFrame(paint);
-            }
+            if (raycasterShader) { raycasterShader.setSurfaceColor(r, g, b); requestAnimationFrame(paint); }
         },
-        // onModeChange
         function(mode) {
-            if (raycasterShader) {
-                raycasterShader.setCompositingMode(mode);
-                requestAnimationFrame(paint);
-            }
+            if (raycasterShader) { raycasterShader.setCompositingMode(mode); requestAnimationFrame(paint); }
         },
-        // onAlphaChange
         function(alpha) {
-            if (raycasterShader) {
-                raycasterShader.setAlpha(alpha);
-                requestAnimationFrame(paint);
-            }
+            if (raycasterShader) { raycasterShader.setAlpha(alpha); requestAnimationFrame(paint); }
         }
     );
     editor.setHistogram(histogram);
@@ -107,7 +88,7 @@ async function resetVis(){
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera( 75, canvasWidth / canvasHeight, 0.1, 1000 );
 
-    // Create 3D texture from volume data
+    // 3D texture from volume data
     const volumeTexture = new THREE.Data3DTexture(volume.voxels, volume.width, volume.height, volume.depth);
     volumeTexture.format = THREE.RedFormat;
     volumeTexture.type = THREE.FloatType;
@@ -118,18 +99,18 @@ async function resetVis(){
     volumeTexture.wrapR = THREE.ClampToEdgeWrapping;
     volumeTexture.needsUpdate = true;
 
-    // Create raycaster shader for single-pass volume rendering
+    // raycaster setup
     const volumeSize = new THREE.Vector3(volume.width, volume.height, volume.depth);
     raycasterShader = new RaycasterShader(volumeTexture, volumeSize);
     await raycasterShader.load();
 
-    // re-apply current editor settings so switching datasets keeps the selection
+    // keep editor state when switching datasets
     raycasterShader.setIsoValue(editor.isoValue);
     raycasterShader.setSurfaceColor(editor.currentColor.r, editor.currentColor.g, editor.currentColor.b);
     raycasterShader.setCompositingMode(editor.currentMode);
     raycasterShader.setAlpha(editor.currentAlpha);
 
-    // Render the bounding box of the volume; fragment shader performs raycasting
+    // bounding box as proxy geometry for raycasting
     const boxGeometry = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
     const mesh = new THREE.Mesh(boxGeometry, raycasterShader.material);
     scene.add(mesh);
@@ -137,7 +118,6 @@ async function resetVis(){
     // our camera orbits around an object centered at (0,0,0)
     orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0,0,0), 2*volume.max, renderer.domElement);
 
-    // update histogram with new volume data
     histogram.update(volume);
 
     // init paint loop
