@@ -1,0 +1,310 @@
+{
+  "vpi": [
+    {
+      "year": 2016,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 100.7,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 101.5,
+      "03 BEKLEIDUNG UND SCHUHE": 100.7,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 100.8,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 101.4,
+      "06 GESUNDHEIT": 102.2,
+      "07 VERKEHR": 98.3,
+      "08 INFORMATION UND KOMMUNIKATION": 98.2,
+      "09 FREIZEIT, SPORT UND KULTUR": 101.8,
+      "10 BILDUNG": 101.2,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 103.3,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 101.8,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 101.3
+    },
+    {
+      "year": 2017,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 103.1,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 104.8,
+      "03 BEKLEIDUNG UND SCHUHE": 102.2,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 102.6,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 102.0,
+      "06 GESUNDHEIT": 103.6,
+      "07 VERKEHR": 101.1,
+      "08 INFORMATION UND KOMMUNIKATION": 98.9,
+      "09 FREIZEIT, SPORT UND KULTUR": 104.0,
+      "10 BILDUNG": 103.1,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 106.3,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 103.2,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 103.0
+    },
+    {
+      "year": 2018,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 104.7,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 108.8,
+      "03 BEKLEIDUNG UND SCHUHE": 102.8,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 104.9,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 104.3,
+      "06 GESUNDHEIT": 105.9,
+      "07 VERKEHR": 104.1,
+      "08 INFORMATION UND KOMMUNIKATION": 97.3,
+      "09 FREIZEIT, SPORT UND KULTUR": 104.6,
+      "10 BILDUNG": 105.5,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 109.6,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 105.3,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 105.2
+    },
+    {
+      "year": 2019,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 105.8,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 109.9,
+      "03 BEKLEIDUNG UND SCHUHE": 103.6,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 107.8,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 105.4,
+      "06 GESUNDHEIT": 107.1,
+      "07 VERKEHR": 104.4,
+      "08 INFORMATION UND KOMMUNIKATION": 94.9,
+      "09 FREIZEIT, SPORT UND KULTUR": 106.5,
+      "10 BILDUNG": 108.3,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 112.8,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 106.6,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 107.4
+    },
+    {
+      "year": 2020,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 108.2,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 111.2,
+      "03 BEKLEIDUNG UND SCHUHE": 103.5,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 110.3,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 106.3,
+      "06 GESUNDHEIT": 109.2,
+      "07 VERKEHR": 102.6,
+      "08 INFORMATION UND KOMMUNIKATION": 93.2,
+      "09 FREIZEIT, SPORT UND KULTUR": 108.7,
+      "10 BILDUNG": 110.5,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 116.4,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 108.2,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 110.5
+    },
+    {
+      "year": 2021,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 109.1,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 113.9,
+      "03 BEKLEIDUNG UND SCHUHE": 104.2,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 114.2,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 108.2,
+      "06 GESUNDHEIT": 111.0,
+      "07 VERKEHR": 109.4,
+      "08 INFORMATION UND KOMMUNIKATION": 92.5,
+      "09 FREIZEIT, SPORT UND KULTUR": 111.4,
+      "10 BILDUNG": 112.6,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 120.3,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 109.6,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 112.1
+    },
+    {
+      "year": 2022,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 120.8,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 117.9,
+      "03 BEKLEIDUNG UND SCHUHE": 106.1,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 128.7,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 116.5,
+      "06 GESUNDHEIT": 114.1,
+      "07 VERKEHR": 127.1,
+      "08 INFORMATION UND KOMMUNIKATION": 92.9,
+      "09 FREIZEIT, SPORT UND KULTUR": 116.0,
+      "10 BILDUNG": 115.6,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 131.1,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 111.8,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 116.2
+    },
+    {
+      "year": 2023,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 134.0,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 125.6,
+      "03 BEKLEIDUNG UND SCHUHE": 111.7,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 143.1,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 124.9,
+      "06 GESUNDHEIT": 119.9,
+      "07 VERKEHR": 129.3,
+      "08 INFORMATION UND KOMMUNIKATION": 91.9,
+      "09 FREIZEIT, SPORT UND KULTUR": 125.5,
+      "10 BILDUNG": 122.1,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 147.1,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 120.8,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 124.1
+    },
+    {
+      "year": 2024,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 137.5,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 129.8,
+      "03 BEKLEIDUNG UND SCHUHE": 111.3,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 146.3,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 126.3,
+      "06 GESUNDHEIT": 125.7,
+      "07 VERKEHR": 130.1,
+      "08 INFORMATION UND KOMMUNIKATION": 86.4,
+      "09 FREIZEIT, SPORT UND KULTUR": 131.1,
+      "10 BILDUNG": 128.6,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 157.3,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 128.8,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 129.4
+    },
+    {
+      "year": 2025,
+      "01 NAHRUNGSMITTEL UND ALKOHOLFREIE GETR\u00c4NKE": 142.6,
+      "02 ALKOHOLISCHE GETR\u00c4NKE, TABAKWAREN UND DROGEN": 133.9,
+      "03 BEKLEIDUNG UND SCHUHE": 111.6,
+      "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE": 154.5,
+      "05 EINRICHTUNGSGEGENST\u00c4NDE (M\u00d6BEL), HAUSRAT SOWIE DEREN REGELM\u00c4SSIGE INSTANDHALTUNG": 125.9,
+      "06 GESUNDHEIT": 131.9,
+      "07 VERKEHR": 131.4,
+      "08 INFORMATION UND KOMMUNIKATION": 83.1,
+      "09 FREIZEIT, SPORT UND KULTUR": 136.6,
+      "10 BILDUNG": 135.1,
+      "11 GASTRONOMIE- UND BEHERBERGUNGSDIENSTLEISTUNGEN": 166.5,
+      "12 VERSICHERUNGS- UND FINANZDIENSTLEISTUNGEN": 134.2,
+      "13 ANDERE WAREN UND DIENSTLEISTUNGEN": 134.9
+    }
+  ],
+  "vienna_districts": [
+    {
+      "id": 1,
+      "name": "Innere Stadt",
+      "avg_rent_m2": 20.5
+    },
+    {
+      "id": 2,
+      "name": "Leopoldstadt",
+      "avg_rent_m2": 15.2
+    },
+    {
+      "id": 3,
+      "name": "Landstra\u00dfe",
+      "avg_rent_m2": 16.1
+    },
+    {
+      "id": 4,
+      "name": "Wieden",
+      "avg_rent_m2": 16.5
+    },
+    {
+      "id": 5,
+      "name": "Margareten",
+      "avg_rent_m2": 14.8
+    },
+    {
+      "id": 6,
+      "name": "Mariahilf",
+      "avg_rent_m2": 16.2
+    },
+    {
+      "id": 7,
+      "name": "Neubau",
+      "avg_rent_m2": 16.8
+    },
+    {
+      "id": 8,
+      "name": "Josefstadt",
+      "avg_rent_m2": 16.4
+    },
+    {
+      "id": 9,
+      "name": "Alsergrund",
+      "avg_rent_m2": 16.6
+    },
+    {
+      "id": 10,
+      "name": "Favoriten",
+      "avg_rent_m2": 12.5
+    },
+    {
+      "id": 11,
+      "name": "Simmering",
+      "avg_rent_m2": 12.1
+    },
+    {
+      "id": 12,
+      "name": "Meidling",
+      "avg_rent_m2": 13.2
+    },
+    {
+      "id": 13,
+      "name": "Hietzing",
+      "avg_rent_m2": 15.8
+    },
+    {
+      "id": 14,
+      "name": "Penzing",
+      "avg_rent_m2": 14.2
+    },
+    {
+      "id": 15,
+      "name": "Rudolfsheim-F\u00fcnfhaus",
+      "avg_rent_m2": 13.5
+    },
+    {
+      "id": 16,
+      "name": "Ottakring",
+      "avg_rent_m2": 13.8
+    },
+    {
+      "id": 17,
+      "name": "Hernals",
+      "avg_rent_m2": 14.5
+    },
+    {
+      "id": 18,
+      "name": "W\u00e4hring",
+      "avg_rent_m2": 15.9
+    },
+    {
+      "id": 19,
+      "name": "D\u00f6bling",
+      "avg_rent_m2": 17.2
+    },
+    {
+      "id": 20,
+      "name": "Brigittenau",
+      "avg_rent_m2": 13.1
+    },
+    {
+      "id": 21,
+      "name": "Floridsdorf",
+      "avg_rent_m2": 12.8
+    },
+    {
+      "id": 22,
+      "name": "Donaustadt",
+      "avg_rent_m2": 13.5
+    },
+    {
+      "id": 23,
+      "name": "Liesing",
+      "avg_rent_m2": 13.9
+    }
+  ],
+  "income_trends": [
+    {
+      "year": 2015,
+      "avg_income": 38000
+    },
+    {
+      "year": 2017,
+      "avg_income": 40500
+    },
+    {
+      "year": 2019,
+      "avg_income": 43000
+    },
+    {
+      "year": 2021,
+      "avg_income": 45000
+    },
+    {
+      "year": 2023,
+      "avg_income": 51942
+    }
+  ],
+  "cost_distribution": {
+    "housing": 0.35,
+    "food": 0.15,
+    "transport": 0.12,
+    "energy": 0.08,
+    "other": 0.3
+  }
+}
