@@ -1,3 +1,7 @@
+// This file is used for loading and transforming the story data from the JSON file into a more convenient format for the application. 
+// It also provides utility functions for accessing specific data points and performing calculations related to income, housing costs, and affordability.
+// It mostly serves as getter for the data and some derived values, such as the average rent per m² in Vienna, or the affordability share of housing costs relative to income.
+
 import rawData from './data.json';
 import type {
   StoryData,

@@ -12,6 +12,7 @@
   --shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
+/* Global reset and base typography */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -62,6 +63,7 @@ p {
   color: var(--text-muted);
 }
 
+/* App shell and page width */
 .app-container {
   min-height: 100vh;
   display: flex;
@@ -79,6 +81,7 @@ p {
   padding: 1.5rem 0;
 }
 
+/* Landing page hero */
 .landing-view {
   min-height: calc(100vh - 86px);
   display: flex;
@@ -105,6 +108,7 @@ p {
   align-items: start;
 }
 
+/* Shared card surfaces */
 .card,
 .hero-copy,
 .form-panel {
@@ -126,6 +130,7 @@ p {
   padding: 1.3rem;
 }
 
+/* Metric, summary, and detail stacks */
 .metric-row,
 .stat-stack,
 .district-rank-list {
@@ -138,10 +143,12 @@ p {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* --- Landing view --- */
 .landing-view .metric-row {
   grid-template-columns: 1fr;
 }
 
+/* --- Cards --- */
 .metric-card,
 .stat-item,
 .mini-panel,
@@ -172,6 +179,7 @@ p {
   color: var(--text-soft);
 }
 
+/* Small section label */
 .eyebrow {
   margin-bottom: 0.5rem;
   color: var(--secondary);
@@ -190,6 +198,7 @@ p {
   color: var(--text-muted);
 }
 
+/* Form labels and inputs */
 .panel-header {
   display: grid;
   gap: 0.2rem;
@@ -244,6 +253,7 @@ p {
   border-color: #bfd0ff;
 }
 
+/* Section headings and sticky shared controls */
 .section-header {
   display: grid;
   gap: 0.25rem;
@@ -258,6 +268,7 @@ p {
   z-index: 60;
 }
 
+/* Year slider and toggle layout */
 .controls-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -296,6 +307,7 @@ input[type="range"] {
   font-size: 0.84rem;
 }
 
+/* Chart headers and badges */
 .card-heading {
   display: flex;
   justify-content: space-between;
@@ -384,6 +396,7 @@ input[type="range"] {
   display: block;
 }
 
+/* Comparison chart */
 .comparison-chart {
   min-height: 320px;
 }
@@ -413,6 +426,7 @@ input[type="range"] {
   color: var(--text);
 }
 
+/* Housing map and detail panel */
 .map-card {
   display: grid;
   gap: 0.9rem;
@@ -483,6 +497,7 @@ input[type="range"] {
   font-size: 0.86rem;
 }
 
+/* Bottom navigation */
 .nav-bar {
   position: fixed;
   left: 50%;
@@ -516,6 +531,7 @@ input[type="range"] {
   color: var(--text);
 }
 
+/* Responsive adjustments */
 @media (max-width: 1100px) {
   .hero-panel,
   .content-grid.two-column,

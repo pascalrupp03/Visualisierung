@@ -33,7 +33,7 @@ const LandingView = () => {
             <div className="metric-card">
               <span>Vienna rent spread</span>
               <strong>{formatEuro((districtSpread.highest.avgRentM2 ?? 0) - (districtSpread.lowest.avgRentM2 ?? 0), 2)}</strong>
-              <small>per {m^2} between cheapest and most expensive district</small>
+              <small>per m² between cheapest and most expensive district</small>
             </div>
             <div className="metric-card">
               <span>18-34 housing cost</span>
