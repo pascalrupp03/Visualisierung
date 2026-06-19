@@ -548,7 +548,7 @@ input[type="range"] {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px) { /* interactive map and chart view */
   .view-container {
     width: min(100vw - 1rem, 1200px);
     padding: 1rem 0;
