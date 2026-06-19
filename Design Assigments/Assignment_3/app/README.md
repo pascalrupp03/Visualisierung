@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# Readme with the main points:
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## feedback to assignment 2
+At the moment, each visualization appears somewhat disconnected and not specifically tied to young people’s situations. You may consider focusing on a clearer comparison, for example: (1) the income of newly graduated students over time, and (2) the inflation of rental prices across Vienna districts, to better illustrate the growing affordability gap.
 
-Currently, two official plugins are available:
+## Changes made
+1. Focus on a smaller group depending on input.
+2. Added summaries and further legends.
+3. Made Visualization more visually appealing.
+4. ...
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## AI Disclaimer
+We utilized codex (chatGPT mini) for creating the generate_json.py to be aple to turn data into json format to work with it easily.
+Furthermore, we used it to optimize and structure our css making it easier to fit and be compatible with D3.js.
 
-## React Compiler
+## Contribution
+- Pascal Rupp:
+    - data processing
+    - handling different types of data
+    - logic and functionality
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Joy Alissa:
+    - Design Components
+    - Layers
+    - Overall navigation structure and app fucntionality
+    - logic and functionality
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Clone from GitHub
+```bash
+git clone https://github.com/<your-username>/<your-repo>.git
+cd <your-repo>
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Run locally
+```bash
+cd app
+npm install
+npm run dev
 ```
+
+## Build locally
+```bash
+cd app
+npm run build
+```
+
+## Data generation
+If you update the source spreadsheets in `data/`, regenerate the app dataset with:
+```bash
+python data/generate_json.py
+```
+This writes the curated output to `app/src/data/data.json`.
