@@ -6,9 +6,9 @@ const LandingView = () => {
   const { userData, setUserData, setHasStarted, setCurrentView } = useAppState();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setHasStarted(true);
-    setCurrentView('personal');
+    e.preventDefault(); // Prevent the default form submission behavior
+    setHasStarted(true); // Mark that the user has started the analysis
+    setCurrentView('personal'); // Transition to the 'personal' view after form submission
   };
 
   return (
@@ -22,17 +22,17 @@ const LandingView = () => {
         <motion.h1
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.6 }} // make transition noticeable but smooth
         >
-          Affordable Austria?
+          Is living in Austria affordable depending on your personal situation?
         </motion.h1>
-        <p>The housing crisis is real. Let's see how it affects YOU.</p>
+        <p>The housing crisis is affecting almost everybody. Let's see how it affects YOU :D.</p>
       </header>
 
       <div className="card" style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="form-group">
-            <label style={{ fontSize: '1.2rem' }}>How old are you?</label>
+            <label style={{ fontSize: '1.2rem' }}>Enter your age:</label>
             <input 
               type="number" 
               style={{ padding: '1rem', fontSize: '1.1rem' }}
@@ -41,7 +41,7 @@ const LandingView = () => {
                 const val = e.target.value;
                 setUserData({ ...userData, age: val === '' ? 0 : parseInt(val) });
               }}
-              min="18"
+              min="16"
               max="100"
             />
           </div>
@@ -57,7 +57,7 @@ const LandingView = () => {
                 setUserData({ ...userData, salary: val === '' ? 0 : parseInt(val) });
               }}
               min="0"
-              max="10000000"
+              max="10000000000000"
               step="1"
               placeholder="e.g. 2500"
             />
