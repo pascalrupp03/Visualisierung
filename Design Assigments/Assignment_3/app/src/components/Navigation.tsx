@@ -9,8 +9,8 @@ const Navigation = () => {
 
   const items = [
     { id: 'landing', label: 'Home', icon: Home },
-    { id: 'personal', label: 'Personal', icon: User },
-    { id: 'geographic', label: 'Map', icon: Map },
+    { id: 'personal', label: 'Income', icon: User },
+    { id: 'geographic', label: 'Rent Map', icon: Map },
   ] as Array<{ id: View; label: string; icon: LucideIcon }>;
 
   return (
@@ -18,6 +18,7 @@ const Navigation = () => {
       {items.map(({ id, label, icon: Icon }) => (
         <button
           key={id}
+          type="button"
           className={`nav-item ${currentView === id ? 'active' : ''}`}
           onClick={() => setCurrentView(id)}
         >

@@ -3,7 +3,6 @@ import LandingView from './components/LandingView';
 import PersonalOverviewView from './components/PersonalOverviewView';
 import GeographicView from './components/GeographicView';
 import Navigation from './components/Navigation';
-import { AnimatePresence } from 'framer-motion';
 import './styles/globals.css';
 
 const AppContent = () => {
@@ -21,9 +20,7 @@ const AppContent = () => {
   return (
     <div className="app-container">
       <main className="main-content">
-        <AnimatePresence mode="wait">
-          {renderView()}
-        </AnimatePresence>
+        {renderView()}
       </main>
       <Navigation />
     </div>

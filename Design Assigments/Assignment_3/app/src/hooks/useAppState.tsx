@@ -9,8 +9,12 @@ interface AppContextType {
   setUserData: (data: UserData) => void;
   hasStarted: boolean;
   setHasStarted: (started: boolean) => void;
-  selectedYear: number;
-  setSelectedYear: (year: number) => void;
+  selectedIncomeYear: number;
+  setSelectedIncomeYear: (year: number) => void;
+  selectedHousingYear: number;
+  setSelectedHousingYear: (year: number) => void;
+  selectedDistrict: string | null;
+  setSelectedDistrict: (district: string | null) => void;
   showAverage: boolean;
   setShowAverage: (show: boolean) => void;
 }
@@ -21,13 +25,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentView, setCurrentView] = useState<View>('landing');
   const [userData, setUserData] = useState<UserData>({ age: 25, salary: 2500, apartmentSize: 40 });
   const [hasStarted, setHasStarted] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(2015);
+  const [selectedIncomeYear, setSelectedIncomeYear] = useState(2025);
+  const [selectedHousingYear, setSelectedHousingYear] = useState(2025);
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>('Innere Stadt');
   const [showAverage, setShowAverage] = useState(false);
 
+  // Provide the state and setters to the context
+  // This allows any component within the AppProvider to access and modify the state
   return (
     <AppContext.Provider value={{ 
       currentView, setCurrentView, userData, setUserData, hasStarted, setHasStarted,
-      selectedYear, setSelectedYear, showAverage, setShowAverage
+      selectedIncomeYear, setSelectedIncomeYear, selectedHousingYear, setSelectedHousingYear,
+      selectedDistrict, setSelectedDistrict, showAverage, setShowAverage
     }}>
       {children}
     </AppContext.Provider>
