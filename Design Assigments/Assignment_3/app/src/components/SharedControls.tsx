@@ -1,16 +1,27 @@
-import { useAppState } from '../hooks/useAppState';
+import type { RentOverlayMode } from '../types/data';
 
 interface SharedControlsProps {
-  showMeanToggle?: boolean;
   minYear: number;
   maxYear: number;
   note: string;
   value: number;
   onChange: (year: number) => void;
+  rentOverlayMode?: RentOverlayMode;
+  onRentOverlayChange?: (mode: RentOverlayMode) => void;
+  selectedDistrict?: string | null;
 }
 
-const SharedControls = ({ showMeanToggle = true, minYear, maxYear, note, value, onChange }: SharedControlsProps) => {
-  const { showAverage, setShowAverage } = useAppState();
+const SharedControls = ({
+  minYear,
+  maxYear,
+  note,
+  value,
+  onChange,
+  rentOverlayMode,
+  onRentOverlayChange,
+  selectedDistrict,
+}: SharedControlsProps) => {
+  const hasRentToggle = Boolean(rentOverlayMode && onRentOverlayChange);
 
   return (
     <div className="card shared-controls">
@@ -31,16 +42,25 @@ const SharedControls = ({ showMeanToggle = true, minYear, maxYear, note, value, 
           <p className="control-note">{note}</p>
         </div>
 
-        {showMeanToggle && (
+        {hasRentToggle && (
           <div className="toggle-group">
-            <button
-              type="button"
-              className={showAverage ? 'btn btn-secondary active' : 'btn btn-secondary'}
-              onClick={() => setShowAverage(!showAverage)}
-            >
-              {showAverage ? 'Mean line on' : 'Show mean line'}
-            </button>
-            <p className="control-note">Shows or hides the average line.</p>
+            <div className="segmented-control">
+              <button
+                type="button"
+                className={rentOverlayMode === 'average' ? 'segment active' : 'segment'}
+                onClick={() => onRentOverlayChange?.('average')}
+              >
+                Vienna average
+              </button>
+              <button
+                type="button"
+                className={rentOverlayMode === 'selectedDistrict' ? 'segment active' : 'segment'}
+                onClick={() => onRentOverlayChange?.('selectedDistrict')}
+              >
+                {selectedDistrict ?? 'Selected district'}
+              </button>
+            </div>
+            <p className="control-note">Rent overlay source for the income chart.</p>
           </div>
         )}
       </div>
