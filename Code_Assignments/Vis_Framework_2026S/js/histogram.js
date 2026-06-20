@@ -48,6 +48,7 @@ class Histogram {
 
         // skip first bin for y-domain (background/air dominates otherwise)
         const maxCount = d3.max(bins.slice(1), d => d.length);
+        // const maxCount = d3.max(bins, d => d.length); // For all 
         this.yScale.domain([0, maxCount]);
 
         this.svg.select(".y-axis")
