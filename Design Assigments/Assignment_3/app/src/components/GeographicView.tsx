@@ -1,0 +1,245 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as d3 from 'd3';
+import { useAppState } from '../hooks/useAppState';
+import SharedControls from './SharedControls';
+import type { DistrictFeature, DistrictFeatureCollection } from '../types/data';
+import viennaGeo from '../data/vienna_districts.json';
+import {
+  districtRents,
+  districtSpread,
+  formatEuro,
+  formatPercent,
+  getAffordabilityShare,
+  getDistrictRentForYear,
+  housingCostRows,
+  housingInflationSnapshots,
+  graduateSalaryBenchmark2023,
+  tenureRows,
+  contractDurationRows,
+} from '../data/storyData';
+
+const districtGeo = viennaGeo as unknown as DistrictFeatureCollection;
+
+const GeographicView = () => {
+  const { userData, selectedHousingYear, setSelectedHousingYear, selectedDistrict, setSelectedDistrict } = useAppState();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
+
+  const selectedDistrictData = useMemo(
+    () => districtRents.find((district) => district.name === selectedDistrict) ?? districtRents[0],
+    [selectedDistrict],
+  );
+
+  const rentIndex = housingInflationSnapshots.find((point) => point.year === selectedHousingYear);
+  const districtRent = selectedDistrictData ? getDistrictRentForYear(selectedDistrictData, selectedHousingYear) : 0;
+  const monthlyDistrictRent = districtRent * userData.apartmentSize;
+  const rentShare = getAffordabilityShare(monthlyDistrictRent, graduateSalaryBenchmark2023?.monthlyGross ?? 0);
+  const housingCostRow = housingCostRows.find((row) => row.label === '18 bis 34 Jahre');
+  const tenureRow = tenureRows.find((row) => row.label === '18 bis 34 Jahre');
+  const durationRow = contractDurationRows.find((row) => row.label === 'Wien');
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const width = 820;
+    const height = 620;
+    const baselineYear = housingInflationSnapshots[0]?.year ?? 2016;
+    const sensitivityBoost = 4;
+    const projection = d3.geoMercator().fitSize([width, height], districtGeo);
+    const path = d3.geoPath(projection);
+    const sensitiveValues = districtRents.flatMap((district) =>
+      housingInflationSnapshots.map((entry) => {
+        const currentRent = getDistrictRentForYear(district, entry.year);
+        const baselineRent = getDistrictRentForYear(district, baselineYear);
+        return currentRent + (currentRent - baselineRent) * sensitivityBoost;
+      }),
+    );
+    const colorScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([
+      d3.min(sensitiveValues) ?? 0,
+      d3.max(sensitiveValues) ?? 1,
+    ]);
+
+    const chart = svg.append('g');
+
+    chart.selectAll('path')
+      .data(districtGeo.features)
+      .enter()
+      .append('path')
+      .attr('d', (feature) => path(feature) ?? '')
+      .attr('fill', (feature) => {
+        const district = districtRents.find((item) => item.name === feature.properties.name);
+        if (!district) return '#e2e8f0';
+        const currentRent = getDistrictRentForYear(district, selectedHousingYear);
+        const baselineRent = getDistrictRentForYear(district, baselineYear);
+        const sensitiveValue = currentRent + (currentRent - baselineRent) * sensitivityBoost;
+        return colorScale(sensitiveValue);
+      })
+      .attr('stroke', (feature) => (feature.properties.name === selectedDistrict ? '#0f172a' : 'rgba(255,255,255,0.9)'))
+      .attr('stroke-width', (feature) => (feature.properties.name === selectedDistrict ? 2.25 : 1))
+      .style('cursor', 'pointer')
+      .on('mouseenter', (event: MouseEvent, feature: DistrictFeature) => {
+        const district = districtRents.find((item) => item.name === feature.properties.name);
+        if (!district) return;
+        const currentRent = getDistrictRentForYear(district, selectedHousingYear);
+        const monthlyRent = currentRent * userData.apartmentSize;
+        const share = getAffordabilityShare(monthlyRent, graduateSalaryBenchmark2023?.monthlyGross ?? 0);
+
+        setTooltip({
+          x: event.pageX,
+          y: event.pageY - 24,
+          content: `${district.name}: ${formatEuro(currentRent, 2)} / m², ${formatEuro(monthlyRent, 0)} for ${userData.apartmentSize} m², ${share.toFixed(0)}% of a graduate monthly gross income.`,
+        });
+      })
+      .on('mouseleave', () => setTooltip(null))
+      .on('click', (_, feature: DistrictFeature) => {
+        setSelectedDistrict(feature.properties.name);
+      });
+
+    chart.selectAll('text')
+      .data(districtGeo.features)
+      .enter()
+      .append('text')
+      .attr('transform', (feature) => {
+        const [x, y] = path.centroid(feature);
+        return `translate(${x},${y})`;
+      })
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '10px')
+      .attr('font-weight', '700')
+      .attr('fill', 'rgba(15, 23, 42, 0.85)')
+      .attr('pointer-events', 'none')
+      .text((feature) => districtRents.find((item) => item.name === feature.properties.name)?.id ?? '');
+  }, [selectedHousingYear, selectedDistrict, setSelectedDistrict, userData.apartmentSize]);
+
+  const rankedDistricts = useMemo(
+    () => [...districtRents]
+      .sort((left, right) => getDistrictRentForYear(right, selectedHousingYear) - getDistrictRentForYear(left, selectedHousingYear)),
+    [selectedHousingYear],
+  );
+
+  const bottomDistricts = useMemo(
+    () => [...districtRents]
+      .sort((left, right) => getDistrictRentForYear(left, selectedHousingYear) - getDistrictRentForYear(right, selectedHousingYear)),
+    [selectedHousingYear],
+  );
+
+  return (
+    <section className="view-container">
+      <div className="section-header">
+        <p className="eyebrow">Housing pressure</p>
+        <h2>Vienna districts, rent inflation, and where the pressure concentrates</h2>
+        <p>
+          Click a district to pin it. Move the year slider to update the map colors.
+        </p>
+      </div>
+
+      <SharedControls
+        showMeanToggle={false}
+        minYear={2016}
+        maxYear={2025}
+        note="Housing view starts in 2016. Slider updates the map year."
+        value={selectedHousingYear}
+        onChange={setSelectedHousingYear}
+      />
+
+      <div className="content-grid map-layout">
+        <div className="card map-card">
+          <svg ref={svgRef} className="responsive-map" viewBox="0 0 860 700" preserveAspectRatio="xMidYMid meet" />
+          <div className="map-legend">
+            <div className="legend-line">
+              <span>Lower rent</span>
+              <span>Higher rent</span>
+            </div>
+            <div className="legend-bar" />
+            <p>Small rent changes are amplified for visibility.</p>
+          </div>
+        </div>
+
+        <div className="card detail-card">
+          <div className="card-heading">
+            <div>
+              <h3>{selectedDistrictData?.name ?? 'Selected district'}</h3>
+              <p>Selected year {selectedHousingYear}</p>
+            </div>
+            <div className="chart-badges">
+              <span>{formatEuro(rentIndex?.housing ?? null, 1)} housing CPI</span>
+              <span>{formatEuro(districtSpread.average, 2)} avg. district rent</span>
+            </div>
+          </div>
+
+          <div className="stat-stack">
+            <div className="stat-item">
+              <span>District rent per m²</span>
+              <strong>{formatEuro(districtRent, 2)}</strong>
+            </div>
+            <div className="stat-item">
+              <span>Monthly rent for {userData.apartmentSize} m²</span>
+              <strong>{formatEuro(monthlyDistrictRent, 0)}</strong>
+            </div>
+            <div className="stat-item">
+              <span>Share of graduate monthly gross income</span>
+              <strong>{rentShare.toFixed(0)}%</strong>
+            </div>
+            <div className="stat-item">
+              <span>Vienna housing cost for 18-34</span>
+              <strong>{formatEuro(housingCostRow?.mean ?? null, 0)}</strong>
+            </div>
+          </div>
+
+          <div className="mini-panel">
+            <strong>Young adults in Vienna</strong>
+            <p>
+              In the Mikrozensus, 18 to 34 year-olds report {formatPercent(tenureRow?.shares.privateRent ?? null, 0)} private
+              rent, {formatPercent(tenureRow?.shares.municipal ?? null, 0)} municipal housing, and a median housing cost of{' '}
+              {formatEuro(housingCostRow?.quantiles.median ?? null, 0)}.
+            </p>
+            <strong>Contract duration</strong>
+            <p>
+              Vienna&apos;s main rent segment shows a median contract duration of {durationRow?.durationStats.median ?? '–'} years
+              with {formatPercent(durationRow?.fixedTermShare ?? null, 0)} fixed-term leases.
+            </p>
+          </div>
+
+          <div className="district-rank-list">
+            <div className="mini-section-heading">Most expensive districts</div>
+            {rankedDistricts.slice(0, 5).map((district, index) => (
+              <button
+                key={district.id}
+                type="button"
+                className={selectedDistrictData?.name === district.name ? 'district-row active' : 'district-row'}
+                onClick={() => setSelectedDistrict(district.name)}
+              >
+                <span>{index + 1}. {district.name}</span>
+                <strong>{formatEuro(getDistrictRentForYear(district, selectedHousingYear), 2)}</strong>
+              </button>
+            ))}
+
+            <div className="mini-section-heading">Lowest rents</div>
+            {bottomDistricts.slice(0, 5).map((district, index) => (
+              <button
+                key={district.id}
+                type="button"
+                className={selectedDistrictData?.name === district.name ? 'district-row active' : 'district-row'}
+                onClick={() => setSelectedDistrict(district.name)}
+              >
+                <span>{index + 1}. {district.name}</span>
+                <strong>{formatEuro(getDistrictRentForYear(district, selectedHousingYear), 2)}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {tooltip && (
+        <div className="tooltip" style={{ left: tooltip.x + 10, top: tooltip.y }}>
+          {tooltip.content}
+        </div>
+      )}
+    </section>
+  );
+};
+
+export default GeographicView;
