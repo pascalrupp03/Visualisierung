@@ -46,7 +46,7 @@ const GeographicView = () => {
     const svg = d3.select(svgRef.current);
     const width = 820;
     const height = 620;
-    const baselineYear = housingInflationSnapshots[0]?.year ?? 2016;
+    const baselineYear = housingInflationSnapshots[0]?.year ?? 2005;
     const sensitivityBoost = 4;
 
     const projection = d3.geoMercator().fitSize([width, height], districtGeo);
@@ -160,14 +160,14 @@ const GeographicView = () => {
         <p className="eyebrow">Housing pressure</p>
         <h2>Vienna districts, rent inflation, and affordability</h2>
         <p>
-          Income timeline starts at 1998, but district-rent timeline starts at 2016. District borders indicate affordability for your input.
+          Income timeline starts at 1998, but district-rent timeline starts at 2005. District borders indicate affordability for your input.
         </p>
       </div>
 
       <SharedControls
-        minYear={2016}
+        minYear={2005}
         maxYear={2025}
-        note="Housing timeline available for 2016-2025."
+        note="Housing timeline available for 2005-2025."
         value={selectedHousingYear}
         onChange={setSelectedHousingYear}
       />

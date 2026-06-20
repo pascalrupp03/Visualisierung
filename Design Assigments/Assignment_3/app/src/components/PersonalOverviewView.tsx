@@ -327,7 +327,6 @@ const PersonalOverviewView = () => {
   const age20to29 = ageIncomeRows.find((row) => row.label === '20 bis 29 Jahre');
   const universityIncome = occupationIncomeRows.find((row) => row.label === 'Akademische Berufe');
   const rentShare = getAffordabilityShare(incomeContext.monthlyRent, incomeContext.monthlyIncome);
-  const realIncomeShare = getAffordabilityShare(incomeContext.monthlyRent, incomeContext.realMonthlyIncome);
 
   const comparisonHint = comparisonMode === 'education'
     ? 'Black dots = women. Orange dots = men.'
@@ -348,7 +347,7 @@ const PersonalOverviewView = () => {
       <SharedControls
         minYear={1998}
         maxYear={2025}
-        note="Income timeline: 1998-2025. Housing timeline: 2016-2025."
+        note="Income timeline: 1998-2025. Housing timeline: 2005-2025."
         value={selectedIncomeYear}
         onChange={setSelectedIncomeYear}
         rentOverlayMode={rentOverlayMode}
@@ -385,7 +384,7 @@ const PersonalOverviewView = () => {
               <strong>{formatEuro(incomeContext.monthlyIncome, 0)}</strong>
             </div>
             <div className="stat-item">
-              <span>Real monthly income proxy</span>
+              <span>Real monthly income (1998 prices)</span>
               <strong>{formatEuro(incomeContext.realMonthlyIncome, 0)}</strong>
             </div>
             <div className="stat-item">
@@ -395,10 +394,6 @@ const PersonalOverviewView = () => {
             <div className="stat-item">
               <span>Rent share of nominal income</span>
               <strong>{rentShare.toFixed(0)}%</strong>
-            </div>
-            <div className="stat-item">
-              <span>Rent share of real income</span>
-              <strong>{realIncomeShare.toFixed(0)}%</strong>
             </div>
             <div className="stat-item">
               <span>Rent share of graduate benchmark</span>

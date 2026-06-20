@@ -24,9 +24,10 @@ const LandingView = () => {
     const incomeLatest = incomeTrend[incomeTrend.length - 1]?.overall ?? 0;
     const incomeGrowth = income1998 > 0 ? ((incomeLatest - income1998) / income1998) * 100 : 0;
 
-    const rent2016 = housingInflationAnnual.find((point) => point.year === 2016)?.index ?? 0;
+    const firstHousingYear = housingInflationAnnual[0]?.year ?? 2005;
+    const rent2005 = housingInflationAnnual.find((point) => point.year === firstHousingYear)?.index ?? 0;
     const rentLatest = housingInflationAnnual[housingInflationAnnual.length - 1]?.index ?? 0;
-    const rentGrowth = rent2016 > 0 ? ((rentLatest - rent2016) / rent2016) * 100 : 0;
+    const rentGrowth = rent2005 > 0 ? ((rentLatest - rent2005) / rent2005) * 100 : 0;
 
     return {
       incomeGrowth,
@@ -91,7 +92,7 @@ const LandingView = () => {
                   <small>annual gross income (dataset trend)</small>
                 </motion.div>
                 <motion.div className="metric-card" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                  <span>Housing inflation since 2016</span>
+                  <span>Housing inflation since 2005</span>
                   <strong>+{introStats.rentGrowth.toFixed(0)}%</strong>
                   <small>housing index (Vienna timeline)</small>
                 </motion.div>
