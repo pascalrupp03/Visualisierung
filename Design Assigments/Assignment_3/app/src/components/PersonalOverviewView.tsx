@@ -4,10 +4,12 @@ import { useAppState } from '../hooks/useAppState';
 import SharedControls from './SharedControls';
 import {
   ageIncomeRows,
+  districtRents,
   formatEuro,
   getAffordabilityShare,
   getAverageDistrictRentSeries,
   getComparisonDataset,
+  getDistrictRentSeries,
   getReferenceIncomeYear,
   graduateSalaryBenchmark2023,
   incomeTrend,
@@ -31,13 +33,38 @@ const comparisonConfig: Record<ComparisonMode, { label: string; description: str
   },
 };
 
+const chartBox = { width: 980, height: 500, margin: { top: 40, right: 30, bottom: 52, left: 72 } };
+
 const PersonalOverviewView = () => {
-  const { userData, selectedIncomeYear, setSelectedIncomeYear } = useAppState();
+  const {
+    userData,
+    selectedIncomeYear,
+    setSelectedIncomeYear,
+    selectedDistrict,
+    rentOverlayMode,
+    setRentOverlayMode,
+  } = useAppState();
+
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('age');
   const trendRef = useRef<SVGSVGElement>(null);
   const comparisonRef = useRef<SVGSVGElement>(null);
   const comparisonRows = useMemo(() => getComparisonDataset(comparisonMode), [comparisonMode]);
   const comparisonHeight = Math.max(420, comparisonRows.length * 78 + 72);
+
+  const rentSeries = useMemo(() => {
+    if (rentOverlayMode === 'average') {
+      return getAverageDistrictRentSeries(userData.apartmentSize).map((point) => ({
+        year: point.year,
+        annual: point.monthlyRent * 12,
+      }));
+    }
+
+    const district = districtRents.find((item) => item.name === selectedDistrict) ?? districtRents[0];
+    return getDistrictRentSeries(userData.apartmentSize, district).map((point) => ({
+      year: point.year,
+      annual: point.monthlyRent * 12,
+    }));
+  }, [rentOverlayMode, selectedDistrict, userData.apartmentSize]);
 
   const incomeContext = useMemo(() => {
     const referenceYear = getReferenceIncomeYear(selectedIncomeYear);
@@ -46,9 +73,8 @@ const PersonalOverviewView = () => {
     const monthlyIncome = currentIncome?.overall ? currentIncome.overall / 12 : 0;
     const realMonthlyIncome = realIncome?.overall ? realIncome.overall / 12 : 0;
     const graduateMonthlyGross = graduateSalaryBenchmark2023?.monthlyGross ?? 0;
-    const apartmentRentSeries = getAverageDistrictRentSeries(userData.apartmentSize);
-    const selectedRentPoint = apartmentRentSeries.find((point) => point.year === referenceYear) ?? apartmentRentSeries[0];
-    const monthlyRent = selectedRentPoint?.monthlyRent ?? 0;
+    const rentPoint = rentSeries.find((point) => point.year === referenceYear) ?? rentSeries[rentSeries.length - 1];
+    const monthlyRent = rentPoint ? rentPoint.annual / 12 : 0;
 
     return {
       referenceYear,
@@ -59,133 +85,149 @@ const PersonalOverviewView = () => {
       rentShare: getAffordabilityShare(monthlyRent, monthlyIncome),
       graduateGap: getAffordabilityShare(monthlyRent, graduateMonthlyGross),
     };
-  }, [selectedIncomeYear, userData.apartmentSize]);
+  }, [selectedIncomeYear, rentSeries]);
 
   useEffect(() => {
     if (!trendRef.current) return;
 
     const svg = d3.select(trendRef.current);
-    svg.selectAll('*').remove();
+    const { width: boxWidth, height: boxHeight, margin } = chartBox;
+    const width = boxWidth - margin.left - margin.right;
+    const height = boxHeight - margin.top - margin.bottom;
 
-    const margin = { top: 40, right: 30, bottom: 52, left: 72 };
-    const width = 980 - margin.left - margin.right;
-    const height = 460 - margin.top - margin.bottom;
-    const grossSeries = incomeTrend.map((point) => ({
+    const incomeSeries = incomeTrend.map((point) => ({
       year: point.year,
       nominal: point.overall ?? 0,
       real: realIncomeTrend.find((entry) => entry.year === point.year)?.overall ?? 0,
     }));
 
+    const yMax = d3.max([
+      d3.max(incomeSeries, (point) => Math.max(point.nominal, point.real)) ?? 0,
+      d3.max(rentSeries, (point) => point.annual) ?? 0,
+      graduateSalaryBenchmark2023?.annualGross ?? 0,
+      userData.salary * 12,
+    ]) ?? 1;
+
     const x = d3.scaleLinear()
-      .domain(d3.extent(grossSeries, (point) => point.year) as [number, number])
+      .domain(d3.extent(incomeSeries, (point) => point.year) as [number, number])
       .range([0, width]);
 
     const y = d3.scaleLinear()
-      .domain([0, d3.max(grossSeries.flatMap((point) => [point.nominal, point.real, graduateSalaryBenchmark2023?.annualGross ?? 0])) ?? 1])
+      .domain([0, yMax])
       .nice()
       .range([height, 0]);
 
-    const lineNominal = d3.line<typeof grossSeries[number]>()
+    const lineNominal = d3.line<typeof incomeSeries[number]>()
       .x((point) => x(point.year))
       .y((point) => y(point.nominal))
       .curve(d3.curveMonotoneX);
 
-    const lineReal = d3.line<typeof grossSeries[number]>()
+    const lineReal = d3.line<typeof incomeSeries[number]>()
       .x((point) => x(point.year))
       .y((point) => y(point.real))
       .curve(d3.curveMonotoneX);
 
-    const chart = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const lineRent = d3.line<typeof rentSeries[number]>()
+      .x((point) => x(point.year))
+      .y((point) => y(point.annual))
+      .curve(d3.curveMonotoneX);
 
-    chart.append('path')
-      .datum(grossSeries)
-      .attr('d', lineReal)
-      .attr('fill', 'none')
-      .attr('stroke', 'rgba(15, 23, 42, 0.45)')
-      .attr('stroke-width', 2.5)
-      .attr('stroke-dasharray', '6,6');
+    const root = svg.selectAll<SVGGElement, unknown>('g.chart-root')
+      .data([null])
+      .join('g')
+      .attr('class', 'chart-root')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    chart.append('path')
-      .datum(grossSeries)
-      .attr('d', lineNominal)
-      .attr('fill', 'none')
-      .attr('stroke', '#4f46e5')
-      .attr('stroke-width', 3.2);
-
-    const userAnnualIncome = userData.salary ? userData.salary * 12 : 0;
-    if (userAnnualIncome > 0) {
-      chart.append('line')
-        .attr('x1', 0)
-        .attr('x2', width)
-        .attr('y1', y(userAnnualIncome))
-        .attr('y2', y(userAnnualIncome))
-        .attr('stroke', '#16a34a')
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '5,5');
-    }
-
-    chart.append('line')
-      .attr('x1', 0)
-      .attr('x2', width)
-      .attr('y1', y(graduateSalaryBenchmark2023?.annualGross ?? 0))
-      .attr('y2', y(graduateSalaryBenchmark2023?.annualGross ?? 0))
-      .attr('stroke', '#f59e0b')
-      .attr('stroke-width', 1.75)
-      .attr('stroke-dasharray', '7,6');
-
-    chart.append('text')
-      .attr('x', width - 12)
-      .attr('y', y(graduateSalaryBenchmark2023?.annualGross ?? 0) - 10)
-      .attr('text-anchor', 'end')
-      .attr('fill', '#b45309')
-      .style('font-size', '12px')
-      .style('font-weight', '700')
-      .text(`Graduate benchmark ${graduateSalaryBenchmark2023?.label ?? ''}`);
-
-    const activePoint = grossSeries.find((point) => point.year === incomeContext.referenceYear) ?? grossSeries[grossSeries.length - 1];
-    if (activePoint) {
-      chart.append('line')
-        .attr('x1', x(activePoint.year))
-        .attr('x2', x(activePoint.year))
-        .attr('y1', 0)
-        .attr('y2', height)
-        .attr('stroke', 'rgba(71, 85, 105, 0.45)')
-        .attr('stroke-dasharray', '4,4');
-
-      chart.append('circle')
-        .attr('cx', x(activePoint.year))
-        .attr('cy', y(activePoint.nominal))
-        .attr('r', 5.5)
-        .attr('fill', '#4f46e5');
-
-      chart.append('circle')
-        .attr('cx', x(activePoint.year))
-        .attr('cy', y(activePoint.real))
-        .attr('r', 5.5)
-        .attr('fill', '#0f172a');
-    }
-
-    chart.append('g')
+    root.selectAll<SVGGElement, unknown>('g.x-axis')
+      .data([null])
+      .join('g')
+      .attr('class', 'x-axis')
       .attr('transform', `translate(0,${height})`)
       .call(d3.axisBottom(x).tickFormat(d3.format('d')));
 
-    chart.append('g')
+    root.selectAll<SVGGElement, unknown>('g.y-axis')
+      .data([null])
+      .join('g')
+      .attr('class', 'y-axis')
       .call(d3.axisLeft(y).tickFormat((tick) => formatEuro(Number(tick), 0)));
 
-    const legend = chart.append('g').attr('transform', `translate(16, 8)`);
-    const legendItems = [
-      { label: 'Nominal gross income', color: '#4f46e5' },
-      { label: 'Inflation-adjusted gross income', color: 'rgba(15, 23, 42, 0.45)' },
-      { label: 'Your income', color: '#16a34a' },
-      { label: 'Graduate benchmark', color: '#f59e0b' },
-    ];
+    root.selectAll<SVGPathElement, typeof incomeSeries>('path.income-real')
+      .data([incomeSeries])
+      .join('path')
+      .attr('class', 'income-real')
+      .attr('fill', 'none')
+      .attr('stroke', 'rgba(15, 23, 42, 0.45)')
+      .attr('stroke-width', 2.5)
+      .attr('stroke-dasharray', '6,6')
+      .transition()
+      .duration(300)
+      .attr('d', lineReal);
 
-    legendItems.forEach((item, index) => {
-      const row = legend.append('g').attr('transform', `translate(${(index % 2) * 250}, ${(Math.floor(index / 2)) * 20})`);
-      row.append('rect').attr('width', 12).attr('height', 12).attr('rx', 3).attr('fill', item.color);
-      row.append('text').attr('x', 18).attr('y', 11).style('font-size', '12px').text(item.label);
-    });
-  }, [incomeContext.referenceYear, userData.salary]);
+    root.selectAll<SVGPathElement, typeof incomeSeries>('path.income-nominal')
+      .data([incomeSeries])
+      .join('path')
+      .attr('class', 'income-nominal')
+      .attr('fill', 'none')
+      .attr('stroke', 'var(--chart-income-nominal)')
+      .attr('stroke-width', 3.2)
+      .transition()
+      .duration(300)
+      .attr('d', lineNominal);
+
+    root.selectAll<SVGPathElement, typeof rentSeries>('path.rent-overlay')
+      .data([rentSeries])
+      .join('path')
+      .attr('class', 'rent-overlay')
+      .attr('fill', 'none')
+      .attr('stroke', 'var(--chart-rent)')
+      .attr('stroke-width', 2.4)
+      .attr('stroke-dasharray', '8,6')
+      .transition()
+      .duration(300)
+      .attr('d', lineRent);
+
+    const userAnnual = userData.salary * 12;
+    root.selectAll<SVGLineElement, number>('line.user-income')
+      .data(userAnnual > 0 ? [userAnnual] : [])
+      .join('line')
+      .attr('class', 'user-income')
+      .attr('x1', 0)
+      .attr('x2', width)
+      .attr('stroke', 'var(--chart-income-user)')
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '5,5')
+      .transition()
+      .duration(300)
+      .attr('y1', (value) => y(value))
+      .attr('y2', (value) => y(value));
+
+    root.selectAll<SVGLineElement, number>('line.year-marker')
+      .data([incomeContext.referenceYear])
+      .join('line')
+      .attr('class', 'year-marker')
+      .attr('y1', 0)
+      .attr('y2', height)
+      .attr('stroke', 'rgba(71, 85, 105, 0.45)')
+      .attr('stroke-dasharray', '4,4')
+      .transition()
+      .duration(300)
+      .attr('x1', (year) => x(year))
+      .attr('x2', (year) => x(year));
+
+    root.selectAll<SVGLineElement, number>('line.graduate-line')
+      .data([graduateSalaryBenchmark2023?.annualGross ?? 0])
+      .join('line')
+      .attr('class', 'graduate-line')
+      .attr('x1', 0)
+      .attr('x2', width)
+      .attr('stroke', 'var(--chart-income-graduate)')
+      .attr('stroke-width', 1.75)
+      .attr('stroke-dasharray', '7,6')
+      .transition()
+      .duration(300)
+      .attr('y1', (value) => y(value))
+      .attr('y2', (value) => y(value));
+  }, [incomeContext.referenceYear, rentSeries, userData.salary]);
 
   useEffect(() => {
     if (!comparisonRef.current) return;
@@ -223,14 +265,6 @@ const PersonalOverviewView = () => {
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(x).ticks(5).tickFormat((value) => formatEuro(Number(value), 0)))
       .call((group) => group.select('.domain').attr('stroke', 'rgba(148, 163, 184, 0.5)'));
-
-    chart.append('line')
-      .attr('x1', width)
-      .attr('x2', width)
-      .attr('y1', 0)
-      .attr('y2', innerHeight)
-      .attr('stroke', 'rgba(148, 163, 184, 0.45)')
-      .attr('stroke-dasharray', '3,4');
 
     const row = chart.selectAll('.comparison-row')
       .data(rows)
@@ -294,6 +328,7 @@ const PersonalOverviewView = () => {
   const universityIncome = occupationIncomeRows.find((row) => row.label === 'Akademische Berufe');
   const rentShare = getAffordabilityShare(incomeContext.monthlyRent, incomeContext.monthlyIncome);
   const realIncomeShare = getAffordabilityShare(incomeContext.monthlyRent, incomeContext.realMonthlyIncome);
+
   const comparisonHint = comparisonMode === 'education'
     ? 'Black dots = women. Orange dots = men.'
     : comparisonMode === 'age'
@@ -306,30 +341,33 @@ const PersonalOverviewView = () => {
         <p className="eyebrow">Income pressure</p>
         <h2>Income growth versus housing costs</h2>
         <p>
-          The line chart tracks income growth over time. The cards show the selected year, and the comparison chart switches
-          between age, education, and occupation.
+          Overlay rent data on the income trend to make the affordability gap visible.
         </p>
       </div>
 
       <SharedControls
-        showMeanToggle={false}
         minYear={1998}
         maxYear={2025}
-        note="Income view starts in 1998. Slider updates the income year."
+        note="Income timeline: 1998-2025. Housing timeline: 2016-2025."
         value={selectedIncomeYear}
         onChange={setSelectedIncomeYear}
+        rentOverlayMode={rentOverlayMode}
+        onRentOverlayChange={setRentOverlayMode}
+        selectedDistrict={selectedDistrict}
       />
 
       <div className="content-grid two-column">
         <div className="card chart-card">
           <div className="card-heading">
             <div>
-              <h3>Income trend, 1998 to 2023</h3>
-              <p>Solid blue is nominal income. Dashed line = inflation-adjusted income.</p>
+              <h3>Income trend with rent overlay</h3>
+              <p>
+                Blue = nominal income, dashed dark = inflation-adjusted income, red dashed = rent trend.
+              </p>
             </div>
             <div className="chart-badges wrap">
-              <span>Selected income year {incomeContext.referenceYear}</span>
-              <span>{formatEuro(incomeContext.graduateMonthlyGross, 0)} graduate benchmark</span>
+              <span>Selected year {incomeContext.referenceYear}</span>
+              <span>{rentOverlayMode === 'average' ? 'Rent source: Vienna average' : `Rent source: ${selectedDistrict}`}</span>
             </div>
           </div>
           <svg ref={trendRef} className="responsive-chart" viewBox="0 0 980 500" />
@@ -351,7 +389,7 @@ const PersonalOverviewView = () => {
               <strong>{formatEuro(incomeContext.realMonthlyIncome, 0)}</strong>
             </div>
             <div className="stat-item">
-              <span>Average district rent for {userData.apartmentSize} m²</span>
+              <span>Monthly rent for {userData.apartmentSize} m²</span>
               <strong>{formatEuro(incomeContext.monthlyRent, 0)}</strong>
             </div>
             <div className="stat-item">
@@ -370,19 +408,17 @@ const PersonalOverviewView = () => {
           <div className="mini-panel">
             <strong>Young adult benchmark</strong>
             <p>
-              For ages 20 to 29, the median gross income is {formatEuro(age20to29?.income.all.median ?? null, 0)} and the
-              full-time median is {formatEuro(age20to29?.income.fullTime.median ?? null, 0)}.
+              For ages 20 to 29, median gross income is {formatEuro(age20to29?.income.all.median ?? null, 0)}.
             </p>
             <strong>University-level benchmark</strong>
             <p>
-              Academic occupations reach {formatEuro(universityIncome?.income.median ?? null, 0)} annually. The occupation
-              view shows the quartiles.
+              Academic occupations reach {formatEuro(universityIncome?.income.median ?? null, 0)} annually.
             </p>
           </div>
         </div>
       </div>
 
-        <div className="card chart-card">
+      <div className="card chart-card">
         <div className="card-heading">
           <div>
             <h3>2023 comparison view</h3>
@@ -401,12 +437,7 @@ const PersonalOverviewView = () => {
             ))}
           </div>
         </div>
-        <p className="chart-note">
-          {comparisonHint}
-        </p>
-        <p className="chart-note">
-          Bars show the median income. The chart is wide so labels do not overlap.
-        </p>
+        <p className="chart-note">{comparisonHint}</p>
         <div className="comparison-legend">
           {comparisonMode === 'education' ? (
             <>

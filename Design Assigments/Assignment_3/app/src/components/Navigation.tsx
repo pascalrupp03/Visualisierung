@@ -1,9 +1,9 @@
 import { useAppState } from '../hooks/useAppState';
-import { Home, User, Map, type LucideIcon } from 'lucide-react';
+import { Home, RotateCcw, User, Map, type LucideIcon } from 'lucide-react';
 import type { View } from '../types/data';
 
 const Navigation = () => {
-  const { currentView, setCurrentView, hasStarted } = useAppState();
+  const { currentView, setCurrentView, hasStarted, resetToStart } = useAppState();
 
   if (!hasStarted) return null;
 
@@ -26,6 +26,15 @@ const Navigation = () => {
           <span>{label}</span>
         </button>
       ))}
+      <button
+        type="button"
+        className="nav-item nav-item-reset"
+        onClick={resetToStart}
+        aria-label="Back to start"
+      >
+        <RotateCcw size={18} />
+        <span>Reset</span>
+      </button>
     </nav>
   );
 };
