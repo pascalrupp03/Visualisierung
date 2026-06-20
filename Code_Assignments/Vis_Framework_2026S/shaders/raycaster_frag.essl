@@ -1,0 +1,137 @@
+/*
+* Fragment shader: single-pass volume raycasting.
+* MIP + First-Hit (Blinn-Phong shaded iso-surface).
+* Ray/box intersection via slab method.
+*/
+#ifndef GL_ES
+#version 330 es
+#endif
+
+precision highp int;
+precision highp float;
+precision highp sampler3D;
+
+in vec3 vWorldPosition;
+
+uniform vec3 uVolumeSize;
+uniform sampler3D uVolumeTexture;
+uniform float uIsoValue;
+uniform int uCompositingMode;
+uniform vec3 uSurfaceColor;
+uniform float uAlpha;
+
+out vec4 fragColor;
+
+// box is centered at origin, so shift by half to get [0,1] texture coords
+vec3 worldToTexCoord(vec3 pos) {
+    return (pos + uVolumeSize * 0.5) / uVolumeSize;
+}
+
+// central differences gradient - sample one voxel in each direction
+// result points away from the surface (used as normal for shading)
+vec3 computeGradient(vec3 texCoord) {
+    vec3 eps = 1.0 / uVolumeSize; // one voxel in texture space
+
+    float dx = texture(uVolumeTexture, texCoord - vec3(eps.x, 0, 0)).r
+             - texture(uVolumeTexture, texCoord + vec3(eps.x, 0, 0)).r;
+    float dy = texture(uVolumeTexture, texCoord - vec3(0, eps.y, 0)).r
+             - texture(uVolumeTexture, texCoord + vec3(0, eps.y, 0)).r;
+    float dz = texture(uVolumeTexture, texCoord - vec3(0, 0, eps.z)).r
+             - texture(uVolumeTexture, texCoord + vec3(0, 0, eps.z)).r;
+
+    return 0.5 * vec3(dx, dy, dz);
+}
+
+// Blinn-Phong with headlight
+vec3 phongShading(vec3 normal, vec3 viewDir, vec3 lightDir, vec3 color) {
+    float ka = 0.2; // increase brighter Shadows, decrease darker contrast
+    float kd = 0.7; // increase more lighting detail, decrase matt
+    float ks = 0.5; // increase shiny surface decrease dull
+    float shininess = 50.0; // 100 = sharp highlights 20 = soft 
+
+    vec3 ambient = ka * color;
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = kd * diff * color;
+
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfDir), 0.0), shininess);
+    vec3 specular = ks * spec * vec3(1.0);
+
+    return ambient + diffuse + specular;
+}
+
+// slab method ray/AABB intersection
+vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
+    vec3 invDir = 1.0 / rayDir;
+    vec3 t1 = (boxMin - rayOrigin) * invDir;
+    vec3 t2 = (boxMax - rayOrigin) * invDir;
+
+    vec3 tminv = min(t1, t2);
+    vec3 tmaxv = max(t1, t2);
+
+    float tmin = max(max(tminv.x, tminv.y), tminv.z);
+    float tmax = min(min(tmaxv.x, tmaxv.y), tmaxv.z);
+    return vec2(tmin, tmax);
+}
+
+void main() {
+    vec3 boxMin = -uVolumeSize * 0.5;
+    vec3 boxMax =  uVolumeSize * 0.5;
+
+    vec3 rayOrigin = cameraPosition;
+    vec3 rayDir = normalize(vWorldPosition - cameraPosition);
+
+    vec2 tHit = intersectAABB(rayOrigin, rayDir, boxMin, boxMax);
+    float tmin = tHit.x;
+    float tmax = tHit.y;
+
+    if (tmax < tmin || tmax < 0.0) discard;
+    tmin = max(tmin, 0.0); // camera inside box -> start at 0
+
+    // per-ray step size: for each axis, 1/|dir_i| = distance along ray to cross one voxel.
+    // take the min so we never skip a voxel boundary in any direction.
+    vec3 absDir = abs(rayDir);
+    vec3 dt = vec3(1.0) / max(absDir, vec3(1e-8)); // 1e-8 avoids div by zero for axis-aligned rays
+    float stepSize = min(dt.x, min(dt.y, dt.z));
+
+    float t = tmin;
+    float maxIntensity = 0.0;
+    float prevDensity = -1.0; // -1 = no previous sample yet
+
+    while (t < tmax) {
+        vec3 samplePos = rayOrigin + t * rayDir;
+        vec3 texCoord = worldToTexCoord(samplePos);
+        float density = texture(uVolumeTexture, texCoord).r;
+
+        if (uCompositingMode == 0) {
+            // MIP
+            maxIntensity = max(maxIntensity, density);
+        } else {
+            // First-Hit: check iso-surface crossing
+            if (prevDensity >= 0.0 &&
+                ((prevDensity < uIsoValue && density >= uIsoValue) ||
+                 (prevDensity >= uIsoValue && density < uIsoValue))) {
+
+                // linear interpolation between prev and current sample to find exact crossing
+                float frac = (uIsoValue - prevDensity) / (density - prevDensity);
+                vec3 hitPos = rayOrigin + (t - stepSize + frac * stepSize) * rayDir;
+                vec3 hitTC = worldToTexCoord(hitPos);
+
+                vec3 grad = computeGradient(hitTC);
+                vec3 n = normalize(grad);
+                vec3 v = normalize(cameraPosition - hitPos);
+
+                fragColor = vec4(phongShading(n, v, v, uSurfaceColor), uAlpha);
+                return;
+            }
+            prevDensity = density;
+        }
+        t += stepSize;
+    }
+
+    if (uCompositingMode == 0) {
+        fragColor = vec4(vec3(maxIntensity), uAlpha);
+    } else {
+        discard;
+    }
+}

@@ -1,9 +1,17 @@
 ## How to Use
+Load one of the provided volume files through the GUI.
+Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel.
 
-Load one of the provided volume files through the GUI. 
-Rotate the orbit camera around the bounding box using the left mouse button. Zoom using the scroll wheel. 
+The volume appears with First-Hit compositing mode by default.
 
-**TODO: complete this section!** (how to use the editor etc.)
+The panel on the right contains three main controls:
+
+- **Compositing Mode dropdown**: Switch between MIP (Maximum Intensity Projection) and First-Hit rendering modes
+- **Density Histogram**: Shows the distribution of voxel intensities in the data. The dotted line with the white circle is the iso-value indicator - drag it left or right to change the threshold (works for both MIP and First-Hit)
+- **Color Swatcher**: 20 colors to choose from. Click any swatch to change the iso-surface color (only affects First-Hit mode)
+
+The step size for ray marching is computed automatically based on the volume dimensions (no manual adjustment needed).
+
 
 ## Framework Description
 

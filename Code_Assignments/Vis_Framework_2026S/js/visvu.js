@@ -19,7 +19,9 @@ let canvasWidth, canvasHeight = 0;
 let container = null;
 let volume = null;
 let fileInput = null;
-let testShader = null;
+let raycasterShader = null;
+let histogram = null;
+let editor = null;
 
 /**
  * Load all data and initialize UI here.
@@ -27,8 +29,10 @@ let testShader = null;
 function init() {
     // volume viewer
     container = document.getElementById("viewContainer");
-    canvasWidth = window.innerWidth * 0.7;
-    canvasHeight = window.innerHeight * 0.7;
+    const maxWidth = window.innerWidth * 0.70;
+    const maxHeight = window.innerHeight * 0.68;
+    canvasWidth = Math.min(maxWidth, maxHeight * 1.3);
+    canvasHeight = Math.min(maxHeight, canvasWidth / 1.3);
 
     // WebGL renderer
     renderer = new THREE.WebGLRenderer();
@@ -39,8 +43,23 @@ function init() {
     fileInput = document.getElementById("upload");
     fileInput.addEventListener('change', readFile);
 
-    // dummy shader gets a color as input
-    testShader = new TestShader([255.0, 255.0, 0.0]);
+    histogram = new Histogram("#tfContainer");
+
+    editor = new Editor("#tfContainer",
+        function(val) {
+            if (raycasterShader) { raycasterShader.setIsoValue(val); requestAnimationFrame(paint); }
+        },
+        function(r, g, b) {
+            if (raycasterShader) { raycasterShader.setSurfaceColor(r, g, b); requestAnimationFrame(paint); }
+        },
+        function(mode) {
+            if (raycasterShader) { raycasterShader.setCompositingMode(mode); requestAnimationFrame(paint); }
+        },
+        function(alpha) {
+            if (raycasterShader) { raycasterShader.setAlpha(alpha); requestAnimationFrame(paint); }
+        }
+    );
+    editor.setHistogram(histogram);
 }
 
 /**
@@ -69,15 +88,37 @@ async function resetVis(){
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera( 75, canvasWidth / canvasHeight, 0.1, 1000 );
 
-    // dummy scene: we render a box and attach our color test shader as material
-    const testCube = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
-    const testMaterial = testShader.material;
-    await testShader.load(); // this function needs to be called explicitly, and only works within an async function!
-    const testMesh = new THREE.Mesh(testCube, testMaterial);
-    scene.add(testMesh);
+    // 3D texture from volume data
+    const volumeTexture = new THREE.Data3DTexture(volume.voxels, volume.width, volume.height, volume.depth);
+    volumeTexture.format = THREE.RedFormat;
+    volumeTexture.type = THREE.FloatType;
+    volumeTexture.minFilter = THREE.LinearFilter;
+    volumeTexture.magFilter = THREE.LinearFilter;
+    volumeTexture.wrapS = THREE.ClampToEdgeWrapping;
+    volumeTexture.wrapT = THREE.ClampToEdgeWrapping;
+    volumeTexture.wrapR = THREE.ClampToEdgeWrapping;
+    volumeTexture.needsUpdate = true;
+
+    // raycaster setup
+    const volumeSize = new THREE.Vector3(volume.width, volume.height, volume.depth);
+    raycasterShader = new RaycasterShader(volumeTexture, volumeSize);
+    await raycasterShader.load();
+
+    // keep editor state when switching datasets
+    raycasterShader.setIsoValue(editor.isoValue);
+    raycasterShader.setSurfaceColor(editor.currentColor.r, editor.currentColor.g, editor.currentColor.b);
+    raycasterShader.setCompositingMode(editor.currentMode);
+    raycasterShader.setAlpha(editor.currentAlpha);
+
+    // bounding box as proxy geometry for raycasting
+    const boxGeometry = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
+    const mesh = new THREE.Mesh(boxGeometry, raycasterShader.material);
+    scene.add(mesh);
 
     // our camera orbits around an object centered at (0,0,0)
     orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0,0,0), 2*volume.max, renderer.domElement);
+
+    histogram.update(volume);
 
     // init paint loop
     requestAnimationFrame(paint);
