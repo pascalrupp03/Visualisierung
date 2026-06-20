@@ -8,8 +8,19 @@
   --border: #d7deea;
   --primary: #2457ff;
   --primary-soft: #e8edff;
+  --primary-deep: #1b44c7;
   --secondary: #8f5a00;
   --shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  --danger: #c03030;
+
+  --chart-income-nominal: #4f46e5;
+  --chart-income-real: #0f172a;
+  --chart-income-user: #15803d;
+  --chart-income-graduate: #d97706;
+  --chart-rent: #c33a2b;
+  --chart-affordable: #1f9d55;
+  --chart-not-affordable: #d3412f;
+  --geo-stroke-selected: #0f172a;
 }
 
 /* Global reset and base typography */
@@ -88,6 +99,21 @@ p {
   align-items: center;
 }
 
+.landing-panel {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.landing-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
 .hero-panel,
 .content-grid {
   display: grid;
@@ -145,7 +171,7 @@ p {
 
 /* --- Landing view --- */
 .landing-view .metric-row {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 /* --- Cards --- */
@@ -219,6 +245,20 @@ p {
   color: var(--text);
 }
 
+.input-field.input-error {
+  border-color: var(--danger);
+}
+
+.input-help {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  margin-top: 0.3rem;
+}
+
+.input-help.error {
+  color: var(--danger);
+}
+
 .input-field:focus {
   outline: 2px solid rgba(36, 87, 255, 0.18);
   outline-offset: 1px;
@@ -239,6 +279,10 @@ p {
   color: #fff;
 }
 
+.btn-primary:hover {
+  background: var(--primary-deep);
+}
+
 .submit-button {
   margin-top: 0.75rem;
 }
@@ -246,6 +290,10 @@ p {
 .btn-secondary {
   border-color: var(--border);
   background: #fff;
+}
+
+.btn-secondary:hover {
+  background: var(--surface-alt);
 }
 
 .btn-secondary.active {
@@ -531,6 +579,10 @@ input[type="range"] {
   color: var(--text);
 }
 
+.nav-item-reset {
+  border: 1px solid var(--border);
+}
+
 /* Responsive adjustments */
 @media (max-width: 1100px) {
   .hero-panel,
@@ -540,6 +592,10 @@ input[type="range"] {
   }
 
   .metric-row {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-metrics {
     grid-template-columns: 1fr;
   }
 

@@ -172,3 +172,10 @@ export interface DistrictProperties {
 
 export type DistrictFeature = GeoJSON.Feature<GeoJSON.Geometry, DistrictProperties>;
 export type DistrictFeatureCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, DistrictProperties>;
+
+export type RentOverlayMode = 'average' | 'selectedDistrict';
+
+export interface AffordabilityStatus {
+  affordable: boolean;
+  rentPercentage: number;
+}
