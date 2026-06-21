@@ -48,6 +48,8 @@ const PersonalOverviewView = () => {
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('age');
   const trendRef = useRef<SVGSVGElement>(null);
   const comparisonRef = useRef<SVGSVGElement>(null);
+  // Shared scale refs so the dynamic year-marker effect can reuse them
+  const xScaleRef = useRef<d3.ScaleLinear<number, number> | null>(null);
   const comparisonRows = useMemo(() => getComparisonDataset(comparisonMode), [comparisonMode]);
   const comparisonHeight = Math.max(420, comparisonRows.length * 78 + 72);
 
@@ -87,18 +89,20 @@ const PersonalOverviewView = () => {
     };
   }, [selectedIncomeYear, rentSeries]);
 
+  // Static chart effect: scales, axes, all lines except year-marker.
+  // Runs only when underlying data changes, not on every slider tick.
   useEffect(() => {
     if (!trendRef.current) return;
 
     const svg = d3.select(trendRef.current);
     const { width: boxWidth, height: boxHeight, margin } = chartBox;
-    const width = boxWidth - margin.left - margin.right;
-    const height = boxHeight - margin.top - margin.bottom;
+    const width  = boxWidth  - margin.left - margin.right;
+    const height = boxHeight - margin.top  - margin.bottom;
 
     const incomeSeries = incomeTrend.map((point) => ({
-      year: point.year,
+      year:    point.year,
       nominal: point.overall ?? 0,
-      real: realIncomeTrend.find((entry) => entry.year === point.year)?.overall ?? 0,
+      real:    realIncomeTrend.find((entry) => entry.year === point.year)?.overall ?? 0,
     }));
 
     const yMax = d3.max([
@@ -111,218 +115,195 @@ const PersonalOverviewView = () => {
     const x = d3.scaleLinear()
       .domain(d3.extent(incomeSeries, (point) => point.year) as [number, number])
       .range([0, width]);
+    const y = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
 
-    const y = d3.scaleLinear()
-      .domain([0, yMax])
-      .nice()
-      .range([height, 0]);
+    // Store x-scale for the lightweight year-marker effect below
+    xScaleRef.current = x;
 
     const lineNominal = d3.line<typeof incomeSeries[number]>()
-      .x((point) => x(point.year))
-      .y((point) => y(point.nominal))
-      .curve(d3.curveMonotoneX);
-
+      .x((p) => x(p.year)).y((p) => y(p.nominal)).curve(d3.curveMonotoneX);
     const lineReal = d3.line<typeof incomeSeries[number]>()
-      .x((point) => x(point.year))
-      .y((point) => y(point.real))
-      .curve(d3.curveMonotoneX);
-
+      .x((p) => x(p.year)).y((p) => y(p.real)).curve(d3.curveMonotoneX);
     const lineRent = d3.line<typeof rentSeries[number]>()
-      .x((point) => x(point.year))
-      .y((point) => y(point.annual))
-      .curve(d3.curveMonotoneX);
+      .x((p) => x(p.year)).y((p) => y(p.annual)).curve(d3.curveMonotoneX);
 
     const root = svg.selectAll<SVGGElement, unknown>('g.chart-root')
-      .data([null])
-      .join('g')
+      .data([null]).join('g')
       .attr('class', 'chart-root')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
     root.selectAll<SVGGElement, unknown>('g.x-axis')
-      .data([null])
-      .join('g')
-      .attr('class', 'x-axis')
+      .data([null]).join('g').attr('class', 'x-axis')
       .attr('transform', `translate(0,${height})`)
       .call(d3.axisBottom(x).tickFormat(d3.format('d')));
 
     root.selectAll<SVGGElement, unknown>('g.y-axis')
-      .data([null])
-      .join('g')
-      .attr('class', 'y-axis')
+      .data([null]).join('g').attr('class', 'y-axis')
       .call(d3.axisLeft(y).tickFormat((tick) => formatEuro(Number(tick), 0)));
 
     root.selectAll<SVGPathElement, typeof incomeSeries>('path.income-real')
-      .data([incomeSeries])
-      .join('path')
-      .attr('class', 'income-real')
-      .attr('fill', 'none')
-      .attr('stroke', 'rgba(15, 23, 42, 0.45)')
-      .attr('stroke-width', 2.5)
+      .data([incomeSeries]).join('path')
+      .attr('class', 'income-real').attr('fill', 'none')
+      .attr('stroke', 'rgba(15, 23, 42, 0.45)').attr('stroke-width', 2.5)
       .attr('stroke-dasharray', '6,6')
-      .transition()
-      .duration(300)
-      .attr('d', lineReal);
+      .transition().duration(300).attr('d', lineReal);
 
     root.selectAll<SVGPathElement, typeof incomeSeries>('path.income-nominal')
-      .data([incomeSeries])
-      .join('path')
-      .attr('class', 'income-nominal')
-      .attr('fill', 'none')
-      .attr('stroke', 'var(--chart-income-nominal)')
-      .attr('stroke-width', 3.2)
-      .transition()
-      .duration(300)
-      .attr('d', lineNominal);
+      .data([incomeSeries]).join('path')
+      .attr('class', 'income-nominal').attr('fill', 'none')
+      .attr('stroke', 'var(--chart-income-nominal)').attr('stroke-width', 3.2)
+      .transition().duration(300).attr('d', lineNominal);
 
     root.selectAll<SVGPathElement, typeof rentSeries>('path.rent-overlay')
-      .data([rentSeries])
-      .join('path')
-      .attr('class', 'rent-overlay')
-      .attr('fill', 'none')
-      .attr('stroke', 'var(--chart-rent)')
-      .attr('stroke-width', 2.4)
+      .data([rentSeries]).join('path')
+      .attr('class', 'rent-overlay').attr('fill', 'none')
+      .attr('stroke', 'var(--chart-rent)').attr('stroke-width', 2.4)
       .attr('stroke-dasharray', '8,6')
-      .transition()
-      .duration(300)
-      .attr('d', lineRent);
+      .transition().duration(300).attr('d', lineRent);
 
     const userAnnual = userData.salary * 12;
     root.selectAll<SVGLineElement, number>('line.user-income')
-      .data(userAnnual > 0 ? [userAnnual] : [])
-      .join('line')
-      .attr('class', 'user-income')
-      .attr('x1', 0)
-      .attr('x2', width)
-      .attr('stroke', 'var(--chart-income-user)')
-      .attr('stroke-width', 2)
+      .data(userAnnual > 0 ? [userAnnual] : []).join('line')
+      .attr('class', 'user-income').attr('x1', 0).attr('x2', width)
+      .attr('stroke', 'var(--chart-income-user)').attr('stroke-width', 2)
       .attr('stroke-dasharray', '5,5')
-      .transition()
-      .duration(300)
-      .attr('y1', (value) => y(value))
-      .attr('y2', (value) => y(value));
+      .transition().duration(300)
+      .attr('y1', (v) => y(v)).attr('y2', (v) => y(v));
+
+    root.selectAll<SVGLineElement, number>('line.graduate-line')
+      .data([graduateSalaryBenchmark2023?.annualGross ?? 0]).join('line')
+      .attr('class', 'graduate-line').attr('x1', 0).attr('x2', width)
+      .attr('stroke', 'var(--chart-income-graduate)').attr('stroke-width', 1.75)
+      .attr('stroke-dasharray', '7,6')
+      .transition().duration(300)
+      .attr('y1', (v) => y(v)).attr('y2', (v) => y(v));
+  }, [rentSeries, userData.salary]); // NOT incomeContext.referenceYear
+
+  // Dynamic year-marker: only the vertical line moves, no transition.
+  useEffect(() => {
+    if (!trendRef.current || !xScaleRef.current) return;
+    const root = d3.select(trendRef.current).select<SVGGElement>('g.chart-root');
+    if (root.empty()) return;
+
+    const x      = xScaleRef.current;
+    const height = chartBox.height - chartBox.margin.top - chartBox.margin.bottom;
 
     root.selectAll<SVGLineElement, number>('line.year-marker')
       .data([incomeContext.referenceYear])
       .join('line')
       .attr('class', 'year-marker')
-      .attr('y1', 0)
-      .attr('y2', height)
-      .attr('stroke', 'rgba(71, 85, 105, 0.45)')
-      .attr('stroke-dasharray', '4,4')
-      .transition()
-      .duration(300)
+      .attr('y1', 0).attr('y2', height)
+      .attr('stroke', 'rgba(71, 85, 105, 0.45)').attr('stroke-dasharray', '4,4')
+      // No transition – instant response while dragging
       .attr('x1', (year) => x(year))
       .attr('x2', (year) => x(year));
+  }, [incomeContext.referenceYear]);
 
-    root.selectAll<SVGLineElement, number>('line.graduate-line')
-      .data([graduateSalaryBenchmark2023?.annualGross ?? 0])
-      .join('line')
-      .attr('class', 'graduate-line')
-      .attr('x1', 0)
-      .attr('x2', width)
-      .attr('stroke', 'var(--chart-income-graduate)')
-      .attr('stroke-width', 1.75)
-      .attr('stroke-dasharray', '7,6')
-      .transition()
-      .duration(300)
-      .attr('y1', (value) => y(value))
-      .attr('y2', (value) => y(value));
-  }, [incomeContext.referenceYear, rentSeries, userData.salary]);
-
+  // Comparison chart: D3 join so row groups are reused, not rebuilt.
   useEffect(() => {
     if (!comparisonRef.current) return;
 
-    const svg = d3.select(comparisonRef.current);
-    svg.selectAll('*').remove();
-
-    const rows = comparisonRows;
+    const svg   = d3.select(comparisonRef.current);
+    const rows  = comparisonRows;
     const margin = { top: 22, right: 24, bottom: 28, left: comparisonMode === 'education' ? 390 : 330 };
-    const rowHeight = comparisonMode === 'education' ? 82 : 72;
-    const totalWidth = 980 - margin.left - margin.right;
+    const totalWidth       = 980 - margin.left - margin.right;
     const valueColumnWidth = comparisonMode === 'education' ? 140 : 110;
-    const width = totalWidth - valueColumnWidth;
-    const height = Math.max(comparisonMode === 'education' ? 470 : 360, rows.length * rowHeight);
+    const width      = totalWidth - valueColumnWidth;
+    const rowHeight  = comparisonMode === 'education' ? 82 : 72;
+    const height     = Math.max(comparisonMode === 'education' ? 470 : 360, rows.length * rowHeight);
     const innerHeight = height - margin.top - margin.bottom;
 
     const x = d3.scaleLinear()
       .domain([0, d3.max(rows, (row) => Math.max(row.value, row.secondaryValue ?? 0, row.tertiaryValue ?? 0)) ?? 1])
-      .nice()
-      .range([0, width]);
-
+      .nice().range([0, width]);
     const y = d3.scaleBand<string>()
-      .domain(rows.map((row) => row.label))
-      .range([0, innerHeight])
-      .padding(0.3);
+      .domain(rows.map((row) => row.label)).range([0, innerHeight]).padding(0.3);
 
-    const chart = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    // Persistent root group
+    const chart = svg.selectAll<SVGGElement, unknown>('g.comp-root')
+      .data([null]).join('g')
+      .attr('class', 'comp-root')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    chart.append('g')
+    // Y axis
+    chart.selectAll<SVGGElement, unknown>('g.comp-y-axis')
+      .data([null]).join('g').attr('class', 'comp-y-axis')
       .call(d3.axisLeft(y).tickSize(0))
-      .call((group) => group.selectAll('text').attr('fill', '#0f172a').style('font-size', '11px').style('font-weight', '600'))
-      .call((group) => group.select('.domain').remove());
+      .call((g) => g.selectAll('text').attr('fill', '#0f172a').style('font-size', '11px').style('font-weight', '600'))
+      .call((g) => g.select('.domain').remove());
 
-    chart.append('g')
+    // X axis
+    chart.selectAll<SVGGElement, unknown>('g.comp-x-axis')
+      .data([null]).join('g').attr('class', 'comp-x-axis')
       .attr('transform', `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x).ticks(5).tickFormat((value) => formatEuro(Number(value), 0)))
-      .call((group) => group.select('.domain').attr('stroke', 'rgba(148, 163, 184, 0.5)'));
+      .call(d3.axisBottom(x).ticks(5).tickFormat((v) => formatEuro(Number(v), 0)))
+      .call((g) => g.select('.domain').attr('stroke', 'rgba(148, 163, 184, 0.5)'));
 
-    const row = chart.selectAll('.comparison-row')
-      .data(rows)
-      .enter()
-      .append('g')
+    // Row groups – keyed by label so enter/exit are minimal
+    const rowGroups = chart.selectAll<SVGGElement, typeof rows[number]>('g.comparison-row')
+      .data(rows, (row) => row.label)
+      .join('g')
       .attr('class', 'comparison-row')
-      .attr('transform', (item) => `translate(0, ${y(item.label) ?? 0})`);
+      .attr('transform', (row) => `translate(0, ${y(row.label) ?? 0})`);
 
-    row.append('rect')
-      .attr('height', y.bandwidth())
-      .attr('width', (item) => x(item.value))
-      .attr('rx', 10)
-      .attr('fill', '#4f46e5')
-      .attr('opacity', 0.9);
+    // Bars
+    rowGroups.selectAll<SVGRectElement, typeof rows[number]>('rect.cmp-bar')
+      .data((row) => [row]).join('rect').attr('class', 'cmp-bar')
+      .attr('height', y.bandwidth()).attr('rx', 10)
+      .attr('fill', '#4f46e5').attr('opacity', 0.9)
+      .attr('width', (row) => x(row.value));
 
-    row.append('text')
-      .attr('x', width + 12)
-      .attr('y', y.bandwidth() / 2 + 4)
-      .attr('fill', '#0f172a')
-      .style('font-size', '11px')
-      .style('font-weight', '700')
-      .attr('text-anchor', 'start')
-      .text((item) => formatEuro(item.value, 0));
+    // Value labels
+    rowGroups.selectAll<SVGTextElement, typeof rows[number]>('text.cmp-value')
+      .data((row) => [row]).join('text').attr('class', 'cmp-value')
+      .attr('x', width + 12).attr('y', y.bandwidth() / 2 + 4)
+      .attr('fill', '#0f172a').style('font-size', '11px').style('font-weight', '700')
+      .attr('text-anchor', 'start').text((row) => formatEuro(row.value, 0));
 
     if (comparisonMode === 'education') {
-      row.filter((item) => typeof item.secondaryValue === 'number')
-        .append('circle')
-        .attr('cx', (item) => x(item.secondaryValue ?? 0))
-        .attr('cy', y.bandwidth() / 2)
-        .attr('r', 5)
-        .attr('fill', '#0f172a');
-
-      row.filter((item) => typeof item.tertiaryValue === 'number')
-        .append('circle')
-        .attr('cx', (item) => x(item.tertiaryValue ?? 0))
-        .attr('cy', y.bandwidth() / 2)
-        .attr('r', 5)
-        .attr('fill', '#f59e0b');
+      rowGroups.selectAll('line.cmp-secondary, line.cmp-tertiary').remove();
+      rowGroups.selectAll<SVGCircleElement, typeof rows[number]>('circle.cmp-secondary')
+        .data((row) => (typeof row.secondaryValue === 'number' ? [row] : []))
+        .join('circle').attr('class', 'cmp-secondary')
+        .attr('cx', (row) => x(row.secondaryValue ?? 0)).attr('cy', y.bandwidth() / 2)
+        .attr('r', 5).attr('fill', '#0f172a');
+      rowGroups.selectAll<SVGCircleElement, typeof rows[number]>('circle.cmp-tertiary')
+        .data((row) => (typeof row.tertiaryValue === 'number' ? [row] : []))
+        .join('circle').attr('class', 'cmp-tertiary')
+        .attr('cx', (row) => x(row.tertiaryValue ?? 0)).attr('cy', y.bandwidth() / 2)
+        .attr('r', 5).attr('fill', '#f59e0b');
     } else {
-      row.filter((item) => typeof item.secondaryValue === 'number')
-        .append('line')
-        .attr('x1', (item) => x(item.secondaryValue ?? 0))
-        .attr('x2', (item) => x(item.secondaryValue ?? 0))
-        .attr('y1', 6)
-        .attr('y2', y.bandwidth() - 6)
-        .attr('stroke', '#0f172a')
-        .attr('stroke-width', 2);
-
-      row.filter((item) => typeof item.tertiaryValue === 'number')
-        .append('line')
-        .attr('x1', (item) => x(item.tertiaryValue ?? 0))
-        .attr('x2', (item) => x(item.tertiaryValue ?? 0))
-        .attr('y1', 6)
-        .attr('y2', y.bandwidth() - 6)
-        .attr('stroke', '#f59e0b')
-        .attr('stroke-width', 2);
+      rowGroups.selectAll('circle.cmp-secondary, circle.cmp-tertiary').remove();
+      rowGroups.selectAll<SVGLineElement, typeof rows[number]>('line.cmp-secondary')
+        .data((row) => (typeof row.secondaryValue === 'number' ? [row] : []))
+        .join('line').attr('class', 'cmp-secondary')
+        .attr('x1', (row) => x(row.secondaryValue ?? 0)).attr('x2', (row) => x(row.secondaryValue ?? 0))
+        .attr('y1', 6).attr('y2', y.bandwidth() - 6).attr('stroke', '#0f172a').attr('stroke-width', 2);
+      rowGroups.selectAll<SVGLineElement, typeof rows[number]>('line.cmp-tertiary')
+        .data((row) => (typeof row.tertiaryValue === 'number' ? [row] : []))
+        .join('line').attr('class', 'cmp-tertiary')
+        .attr('x1', (row) => x(row.tertiaryValue ?? 0)).attr('x2', (row) => x(row.tertiaryValue ?? 0))
+        .attr('y1', 6).attr('y2', y.bandwidth() - 6).attr('stroke', '#f59e0b').attr('stroke-width', 2);
     }
-  }, [comparisonRows, comparisonMode]);
+
+    // Vertical marker for the overall Vienna median in the selected year
+    const refIncome = incomeTrend.find((p) => p.year === incomeContext.referenceYear)?.overall ?? 0;
+    chart.selectAll<SVGLineElement, number>('line.comp-year-marker')
+      .data(refIncome > 0 ? [refIncome] : [])
+      .join('line').attr('class', 'comp-year-marker')
+      .attr('x1', (v) => x(v)).attr('x2', (v) => x(v))
+      .attr('y1', 0).attr('y2', innerHeight)
+      .attr('stroke', 'var(--chart-income-nominal)')
+      .attr('stroke-width', 1.75)
+      .attr('stroke-dasharray', '5,4');
+    chart.selectAll<SVGTextElement, number>('text.comp-year-label')
+      .data(refIncome > 0 ? [refIncome] : [])
+      .join('text').attr('class', 'comp-year-label')
+      .attr('x', (v) => x(v) + 4).attr('y', -6)
+      .attr('fill', 'var(--chart-income-nominal)')
+      .attr('font-size', '10px').attr('font-weight', '600')
+      .text(`Ø ${incomeContext.referenceYear}`);
+  }, [comparisonRows, comparisonMode, incomeContext.referenceYear]);
 
   const age20to29 = ageIncomeRows.find((row) => row.label === '20 bis 29 Jahre');
   const universityIncome = occupationIncomeRows.find((row) => row.label === 'Akademische Berufe');
@@ -416,8 +397,8 @@ const PersonalOverviewView = () => {
       <div className="card chart-card">
         <div className="card-heading">
           <div>
-            <h3>2023 comparison view</h3>
-            <p>{comparisonConfig[comparisonMode].description}</p>
+            <h3>Income comparison</h3>
+              <p>{comparisonConfig[comparisonMode].description} Blue line = overall Vienna median for {incomeContext.referenceYear}.</p>
           </div>
           <div className="segmented-control">
             {(Object.keys(comparisonConfig) as ComparisonMode[]).map((mode) => (
@@ -449,6 +430,10 @@ const PersonalOverviewView = () => {
               <span><i className="legend-mark-line yellow" /> 3rd quartile</span>
             </>
           )}
+          <span>
+            <i className="legend-mark-line" style={{ background: 'var(--chart-income-nominal)' }} />
+            {' '}Overall median {incomeContext.referenceYear}
+          </span>
         </div>
         <svg ref={comparisonRef} className="responsive-chart comparison-chart" viewBox={`0 0 980 ${comparisonHeight}`} />
       </div>

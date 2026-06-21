@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import type { RentOverlayMode } from '../types/data';
 
 interface SharedControlsProps {
@@ -21,6 +22,40 @@ const SharedControls = ({
   onRentOverlayChange,
   selectedDistrict,
 }: SharedControlsProps) => {
+  // Local value for immediate visual feedback while dragging
+  const [localValue, setLocalValue] = useState(value);
+  const isDraggingRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+
+  // Sync when value is changed externally (e.g., programmatic reset)
+  useEffect(() => {
+    if (!isDraggingRef.current) setLocalValue(value);
+  }, [value]);
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = Number.parseInt(event.target.value, 10);
+    setLocalValue(next); // instant visual update
+
+    // Throttle global state commit to one update per animation frame
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      onChange(next);
+      rafRef.current = null;
+    });
+  };
+
+  const handlePointerDown = () => { isDraggingRef.current = true; };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLInputElement>) => {
+    isDraggingRef.current = false;
+    // Cancel any pending RAF and do a final synchronous commit
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    onChange(Number.parseInt(event.currentTarget.value, 10));
+  };
+
   const hasRentToggle = Boolean(rentOverlayMode && onRentOverlayChange);
 
   return (
@@ -28,16 +63,18 @@ const SharedControls = ({
       <div className="controls-grid">
         <div className="slider-group">
           <div className="slider-header">
-            <label htmlFor="year-slider">Selected year: {value}</label>
-            <span>{minYear} - {maxYear}</span>
+            <label htmlFor="year-slider">Selected year: {localValue}</label>
+            <span>{minYear} – {maxYear}</span>
           </div>
           <input
             id="year-slider"
             type="range"
             min={minYear}
             max={maxYear}
-            value={value}
-            onChange={(event) => onChange(Number.parseInt(event.target.value, 10))}
+            value={localValue}
+            onChange={handleChange}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
           />
           <p className="control-note">{note}</p>
         </div>
