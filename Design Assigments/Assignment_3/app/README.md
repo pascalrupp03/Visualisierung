@@ -17,8 +17,8 @@ At the moment, each visualization appears somewhat disconnected and not specific
 5. Created more interactive elements
 
 ## AI Disclaimer
-We utilized codex (chatGPT mini) for creating the generate_json.py to be aple to turn data into json format to work with it easily.
-Furthermore, we used it to optimize and structure our css making it easier to fit and be compatible with D3.js. Also, we used AI for creating yml file for website deployment and adapting logic of map animatios.
+We utilized codex (chatGPT mini) for creating the generate_json.py to be able to turn data into json format to work with it easily.
+Furthermore, we used it to optimize and structure our css making it easier to fit and be compatible with D3.js. Also, we used AI for creating yml file for website deployment and adapting logic of map animations.
 
 ## Contribution
 - Pascal Rupp:
