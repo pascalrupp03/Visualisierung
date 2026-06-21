@@ -22,14 +22,12 @@ Furthermore, we used it to optimize and structure our css making it easier to fi
 
 ## Contribution
 - Pascal Rupp:
-    - data processing
-    - handling different types of data
-    - logic and functionality
-
-- Joy Alissa:
-    - Design Components
-    - Layerss
-    - Overall navigation structure and app fucntionality
+    - data processing, 
+    - handling different types of data, 
+    - Story elements
+- Joy Alissa
+    - Design Components, 
+    - Layers, Overall navigation structure and app functionality, 
     - logic and functionality
 
 ## Clone from GitHub
