@@ -129,11 +129,6 @@ p {
   grid-template-columns: 1fr;
 }
 
-.content-grid.map-layout {
-  grid-template-columns: 1fr;
-  align-items: start;
-}
-
 /* Shared card surfaces */
 .card,
 .hero-copy,
@@ -504,11 +499,6 @@ input[type="range"] {
   background: linear-gradient(90deg, #fff7bc, #fddc6c, #fdae61, #f46d43, #d73027, #7f0000);
 }
 
-.detail-card {
-  display: grid;
-  gap: 0.9rem;
-}
-
 .district-row {
   display: flex;
   justify-content: space-between;
@@ -586,8 +576,7 @@ input[type="range"] {
 /* Responsive adjustments */
 @media (max-width: 1100px) {
   .hero-panel,
-  .content-grid.two-column,
-  .content-grid.map-layout {
+  .content-grid.two-column {
     grid-template-columns: 1fr;
   }
 
@@ -624,3 +613,138 @@ input[type="range"] {
     min-height: 480px;
   }
 }
+
+/* ── GeographicView: map + side-panel flex layout ─────────────────────────── */
+.map-layout-container {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.map-layout-container .map-card {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.side-panel-card {
+  flex: 0 0 320px;
+  width: 320px;
+  display: grid;
+  gap: 0.9rem;
+  align-self: flex-start;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .map-layout-container {
+    flex-direction: column;
+  }
+  .side-panel-card {
+    flex: none;
+    width: 100%;
+  }
+}
+
+/* ── Brush timeline ───────────────────────────────────────────────────────── */
+.brush-container {
+  margin-bottom: 1rem;
+}
+
+.brush-wrapper {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.brush-timeline {
+  display: block;
+  width: 100%;
+  height: 64px;
+  overflow: visible;
+}
+
+.brush-range-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brush-range-badge {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  border: 1px solid #bfd0ff;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* ── Touch year-range fallback ────────────────────────────────────────────── */
+.touch-year-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.touch-year-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.touch-year-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.touch-year-field select {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.touch-year-sep {
+  font-size: 1.1rem;
+  color: var(--text-soft);
+  margin-top: 1.2rem;
+}
+
+/* ── Side-panel close button ──────────────────────────────────────────────── */
+.panel-close-btn {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.panel-close-btn:hover {
+  background: var(--surface-alt);
+}
+
+/* ── Diverging legend bar (green → yellow → red) ─────────────────────────── */
+.legend-label-below  { color: #1a9641; font-weight: 600; }
+.legend-label-center { color: var(--text-muted); }
+.legend-label-above  { color: #d7191c; font-weight: 600; }
+
+.legend-bar-diverging {
+  background: linear-gradient(90deg, #1a9641, #a6d96a, #ffffbf, #fdae61, #d7191c);
+}
+
+/* ── Stat change indicator colours ───────────────────────────────────────── */
+.stat-up   { color: #d7191c; }
+.stat-down { color: #1a9641; }

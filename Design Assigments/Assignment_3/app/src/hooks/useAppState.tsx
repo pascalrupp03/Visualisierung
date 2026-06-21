@@ -11,8 +11,6 @@ interface AppContextType {
   setHasStarted: (started: boolean) => void;
   selectedIncomeYear: number;
   setSelectedIncomeYear: (year: number) => void;
-  selectedHousingYear: number;
-  setSelectedHousingYear: (year: number) => void;
   selectedDistrict: string | null;
   setSelectedDistrict: (district: string | null) => void;
   rentOverlayMode: RentOverlayMode;
@@ -29,7 +27,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [userData, setUserData] = useState<UserData>(INITIAL_USER_DATA);
   const [hasStarted, setHasStarted] = useState(false);
   const [selectedIncomeYear, setSelectedIncomeYear] = useState(2025);
-  const [selectedHousingYear, setSelectedHousingYear] = useState(2025);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>('Innere Stadt');
   const [rentOverlayMode, setRentOverlayMode] = useState<RentOverlayMode>('average');
 
@@ -38,7 +35,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setHasStarted(false);
     setUserData(INITIAL_USER_DATA);
     setSelectedIncomeYear(2025);
-    setSelectedHousingYear(2025);
     setSelectedDistrict('Innere Stadt');
     setRentOverlayMode('average');
   };
@@ -46,7 +42,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={{
       currentView, setCurrentView, userData, setUserData, hasStarted, setHasStarted,
-      selectedIncomeYear, setSelectedIncomeYear, selectedHousingYear, setSelectedHousingYear,
+      selectedIncomeYear, setSelectedIncomeYear,
       selectedDistrict, setSelectedDistrict, rentOverlayMode, setRentOverlayMode,
       resetToStart,
     }}>

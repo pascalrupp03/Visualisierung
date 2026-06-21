@@ -84,9 +84,10 @@ const GeographicView = () => {
     return max;
   }, [districtRentMap]);
 
-  // green = below Vienna average, yellow = at average, red = above average
+  // sqrt power scale: stretches the ±0–12 % cluster (~22 districts) visually while
+  // keeping Innere Stadt (+37 %) at max saturation — ~2.5× more colour spread near 0.
   const colorScale = useMemo(
-    () => d3.scaleDiverging<string>((t) => d3.interpolateRdYlGn(1 - t))
+    () => d3.scaleDivergingSqrt<string>((t) => d3.interpolateRdYlGn(1 - t))
       .domain([-maxAbsPct, 0, maxAbsPct]),
     [maxAbsPct],
   );
@@ -344,9 +345,9 @@ const GeographicView = () => {
           />
           <div className="map-legend">
             <div className="legend-line">
-              <span className="legend-green">Rent decrease</span>
-              <span>No change (0 %)</span>
-              <span className="legend-red">Rent increase</span>
+              <span className="legend-label-below">Below Vienna average</span>
+              <span className="legend-label-center">Vienna average (0 %)</span>
+              <span className="legend-label-above">Above Vienna average</span>
             </div>
             <div className="legend-bar legend-bar-diverging" />
             <p>
