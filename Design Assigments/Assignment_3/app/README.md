@@ -3,7 +3,7 @@
 ## Website
 You can check the website under the following URL:
 ```bash
-https:// ...
+https://joyalissa13.github.io/visprojcect-ass3-deploy/
 ```
 
 ## feedback to assignment 2
@@ -28,7 +28,7 @@ Furthermore, we used it to optimize and structure our css making it easier to fi
 
 - Joy Alissa:
     - Design Components
-    - Layers
+    - Layerss
     - Overall navigation structure and app fucntionality
     - logic and functionality
 
