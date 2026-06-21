@@ -36,10 +36,16 @@ const GeographicView = () => {
 
   // Stable refs for values used inside D3 event-handler closures
   const selectedDistrictRef = useRef<string | null>(selectedDistrict);
+  const compareDistrictRef   = useRef<string | null>(null);
   const userDataRef = useRef(userData);
   const districtRentMapRef = useRef<Map<string, { start: number; end: number; absChange: number; devFromAvg: number }>>(new Map());
   const committedRangeRef = useRef<YearRange>([YEAR_MIN, YEAR_MAX]);
   const isDraggingRef = useRef(false);
+  // Refs for the D3 brush — needed by the play animation to move the handle programmatically
+  const brushXScaleRef = useRef<d3.ScaleLinear<number, number> | null>(null);
+  const brushGRef      = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
+  const d3BrushRef     = useRef<d3.BrushBehavior<unknown> | null>(null);
+  const playTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => { selectedDistrictRef.current = selectedDistrict; }, [selectedDistrict]);
   useEffect(() => { userDataRef.current = userData; }, [userData]);
@@ -47,8 +53,12 @@ const GeographicView = () => {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
   const [committedRange, setCommittedRange] = useState<YearRange>([YEAR_MIN, YEAR_MAX]);
   const [draftRange, setDraftRange] = useState<YearRange>([YEAR_MIN, YEAR_MAX]);
+  const [compareDistrict, setCompareDistrict] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [rankSortBy, setRankSortBy] = useState<'devFromAvg' | 'endRent'>('devFromAvg');
 
   useEffect(() => { committedRangeRef.current = committedRange; }, [committedRange]);
+  useEffect(() => { compareDistrictRef.current = compareDistrict; }, [compareDistrict]);
 
   // Touch-device detection (once at mount)
   const isTouchDevice = useMemo(
@@ -99,15 +109,28 @@ const GeographicView = () => {
   const monthlyRentEnd = selectedRentData ? selectedRentData.end * userData.apartmentSize : 0;
   const affordability  = useAffordabilityCalculator(monthlyRentEnd, userData.salary);
 
+  // Compare-district derived values (hooks must be called unconditionally)
+  const compareDistrictData = useMemo(
+    () => districtRents.find((d) => d.name === compareDistrict) ?? null,
+    [compareDistrict],
+  );
+  const compareRentData = compareDistrictData
+    ? (districtRentMap.get(compareDistrictData.name) ?? null)
+    : null;
+  const monthlyRentEndCompare = compareRentData ? compareRentData.end * userData.apartmentSize : 0;
+  const affordabilityCompare  = useAffordabilityCalculator(monthlyRentEndCompare, userData.salary);
+
   const housingCostRow = housingCostRows.find((row) => row.label === '18 bis 34 Jahre');
   const tenureRow      = tenureRows.find((row) => row.label === '18 bis 34 Jahre');
   const durationRow    = contractDurationRows.find((row) => row.label === 'Wien');
 
   const rankedDistricts = useMemo(
-    () => [...districtRents].sort(
-      (a, b) => (districtRentMap.get(b.name)?.end ?? 0) - (districtRentMap.get(a.name)?.end ?? 0),
+    () => [...districtRents].sort((a, b) =>
+      rankSortBy === 'devFromAvg'
+        ? (districtRentMap.get(b.name)?.devFromAvg ?? 0) - (districtRentMap.get(a.name)?.devFromAvg ?? 0)
+        : (districtRentMap.get(b.name)?.end ?? 0) - (districtRentMap.get(a.name)?.end ?? 0),
     ),
-    [districtRentMap],
+    [districtRentMap, rankSortBy],
   );
 
   // Static map geometry — runs once at mount
@@ -147,9 +170,15 @@ const GeographicView = () => {
         });
       })
       .on('mouseleave', () => setTooltip(null))
-      .on('click', (_, feature: DistrictFeature) => {
+      .on('click', (event: MouseEvent, feature: DistrictFeature) => {
         const name = feature.properties.name;
-        setSelectedDistrict(selectedDistrictRef.current === name ? null : name);
+        if (event.shiftKey) {
+          // Shift-click: toggle compare district (can't compare a district with itself)
+          if (name === selectedDistrictRef.current) return;
+          setCompareDistrict(compareDistrictRef.current === name ? null : name);
+        } else {
+          setSelectedDistrict(selectedDistrictRef.current === name ? null : name);
+        }
       });
 
     // District ID labels at static centroids
@@ -180,13 +209,16 @@ const GeographicView = () => {
       })
       .attr('stroke', (feature) => {
         if (feature.properties.name === selectedDistrict) return 'var(--geo-stroke-selected)';
+        if (feature.properties.name === compareDistrict) return '#7c3aed';
         const district = districtRents.find((d) => d.name === feature.properties.name);
         if (!district) return 'rgba(255,255,255,0.9)';
         const e     = getDistrictRentForYear(district, draftRange[1]);
         const share = getAffordabilityShare(e * userData.apartmentSize, userData.salary);
         return share <= AFFORDABILITY_THRESHOLD ? 'var(--chart-affordable)' : 'var(--chart-not-affordable)';
       })
-      .attr('stroke-width', (feature) => (feature.properties.name === selectedDistrict ? 2.4 : 1.2))
+      .attr('stroke-width', (feature) => (
+        feature.properties.name === selectedDistrict || feature.properties.name === compareDistrict ? 2.4 : 1.2
+      ))
       .attr('opacity', (feature) => {
         const district = districtRents.find((d) => d.name === feature.properties.name);
         if (!district) return 1;
@@ -194,7 +226,7 @@ const GeographicView = () => {
         const share = getAffordabilityShare(e * userData.apartmentSize, userData.salary);
         return share <= AFFORDABILITY_THRESHOLD ? 1 : 0.82;
       });
-  }, [draftRange, colorScale, selectedDistrict, userData]);
+  }, [draftRange, colorScale, selectedDistrict, compareDistrict, userData]);
 
   // Brush setup (desktop only, runs once)
   useEffect(() => {
@@ -210,6 +242,7 @@ const GeographicView = () => {
       .domain([YEAR_MIN, YEAR_MAX])
       .range([0, innerWidth])
       .clamp(true);
+    brushXScaleRef.current = xScale;
 
     const svg = d3.select(svgEl);
     const g   = svg.append('g').attr('transform', `translate(${margin.left}, 4)`);
@@ -263,13 +296,44 @@ const GeographicView = () => {
         updateLabels(px0, px1);
       });
 
+    d3BrushRef.current = brush;
     const brushG = g.append('g').attr('class', 'geo-brush').call(brush);
+    brushGRef.current = brushG;
 
     brushG.select('.selection')
       .attr('fill', 'rgba(99,102,241,0.12)')
       .attr('stroke', '#6366f1').attr('stroke-width', 1.5);
     brushG.selectAll('.handle').attr('fill', '#6366f1').attr('rx', 3);
   }, [isTouchDevice]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Play animation — advances committedRange[1] by one year every 600 ms
+  useEffect(() => {
+    if (!isPlaying) {
+      if (playTimerRef.current) { clearInterval(playTimerRef.current); playTimerRef.current = null; }
+      return;
+    }
+    playTimerRef.current = setInterval(() => {
+      setCommittedRange((prev) => {
+        if (prev[1] >= YEAR_MAX) {
+          setIsPlaying(false);
+          return prev;
+        }
+        const next: YearRange = [prev[0], prev[1] + 1];
+        setDraftRange(next);
+        // Sync the D3 brush handle to the new range
+        if (brushXScaleRef.current && brushGRef.current && d3BrushRef.current) {
+          brushGRef.current.call(
+            d3BrushRef.current.move,
+            [brushXScaleRef.current(prev[0]), brushXScaleRef.current(prev[1] + 1)],
+          );
+        }
+        return next;
+      });
+    }, 600);
+    return () => {
+      if (playTimerRef.current) { clearInterval(playTimerRef.current); playTimerRef.current = null; }
+    };
+  }, [isPlaying]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const affordabilityLabel = affordability.affordable
     ? 'Affordable (≤ 30 %)'
@@ -283,7 +347,8 @@ const GeographicView = () => {
         <p>
           Select a time window to set the reference period. Map colour shows each district relative
           to the Vienna average at the end year. Click a district for details;
-          click the same district again to close it.
+          click the same district again to close it. <strong>Shift-click</strong> a second district
+          to compare both side by side.
         </p>
       </div>
 
@@ -329,6 +394,22 @@ const GeographicView = () => {
                 {draftRange[0]} – {draftRange[1]}
                 {(draftRange[0] !== committedRange[0] || draftRange[1] !== committedRange[1]) && ' (dragging…)'}
               </span>
+              <button
+                type="button"
+                className={`play-btn${isPlaying ? ' playing' : ''}`}
+                onClick={() => {
+                  if (!isPlaying && committedRange[1] >= YEAR_MAX) {
+                    const reset: YearRange = [committedRange[0], committedRange[0] + 1];
+                    setCommittedRange(reset);
+                    setDraftRange(reset);
+                  }
+                  setIsPlaying((p) => !p);
+                }}
+                aria-label={isPlaying ? 'Pause animation' : 'Play — advances end year automatically'}
+                title={isPlaying ? 'Pause' : 'Play — advances end year automatically'}
+              >
+                {isPlaying ? '⏸' : '▶'}
+              </button>
             </div>
             <svg ref={brushSvgRef} className="brush-timeline" viewBox="0 0 700 64" preserveAspectRatio="none" />
           </div>
@@ -361,8 +442,8 @@ const GeographicView = () => {
         <AnimatePresence mode="wait">
           {selectedDistrict && selectedRentData && (
             <motion.div
-              key={selectedDistrict}
-              className="card side-panel-card"
+              key={`${selectedDistrict}|${compareDistrict ?? ''}`}
+              className={`card side-panel-card${compareDistrict && compareRentData ? ' side-panel-card--compare' : ''}`}
               initial={{ opacity: 0, x: 28 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 28 }}
@@ -370,17 +451,90 @@ const GeographicView = () => {
             >
               <div className="card-heading">
                 <div>
-                  <h3>{selectedDistrictData?.name}</h3>
-                  <p>District {selectedDistrictData?.id}</p>
+                  {compareDistrict && compareRentData ? (
+                    <h3>Comparing 2 districts</h3>
+                  ) : (
+                    <>
+                      <h3>{selectedDistrictData?.name}</h3>
+                      <p>District {selectedDistrictData?.id}</p>
+                    </>
+                  )}
                 </div>
                 <button
                   type="button"
                   className="panel-close-btn"
-                  onClick={() => setSelectedDistrict(null)}
+                  onClick={() => { setSelectedDistrict(null); setCompareDistrict(null); }}
                   aria-label="Close panel"
                 >✕</button>
               </div>
 
+              {compareDistrict && compareRentData ? (
+                /* ── Compare mode: two stat columns ── */
+                <div className="compare-columns">
+                  <div className="compare-col">
+                    <div className="compare-col-header">
+                      {selectedDistrictData?.name}
+                      <span className="compare-col-id">({selectedDistrictData?.id})</span>
+                    </div>
+                    <div className="stat-stack">
+                      <div className="stat-item">
+                        <span>Rent {committedRange[1]}</span>
+                        <strong>{formatEuro(selectedRentData.end, 2)}/m²</strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>vs. Vienna Ø</span>
+                        <strong className={selectedRentData.devFromAvg >= 0 ? 'stat-up' : 'stat-down'}>
+                          {selectedRentData.devFromAvg >= 0 ? '+' : ''}{selectedRentData.devFromAvg.toFixed(1)} %
+                        </strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>Monthly ({userData.apartmentSize} m²)</span>
+                        <strong>{formatEuro(monthlyRentEnd, 0)}</strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>% of income</span>
+                        <strong>{affordability.rentPercentage.toFixed(0)} %</strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>Status</span>
+                        <strong>{affordability.affordable ? '✓ Affordable' : '✗ Above 30 %'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="compare-col compare-col--secondary">
+                    <div className="compare-col-header">
+                      {compareDistrictData?.name}
+                      <span className="compare-col-id">({compareDistrictData?.id})</span>
+                    </div>
+                    <div className="stat-stack">
+                      <div className="stat-item">
+                        <span>Rent {committedRange[1]}</span>
+                        <strong>{formatEuro(compareRentData.end, 2)}/m²</strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>vs. Vienna Ø</span>
+                        <strong className={compareRentData.devFromAvg >= 0 ? 'stat-up' : 'stat-down'}>
+                          {compareRentData.devFromAvg >= 0 ? '+' : ''}{compareRentData.devFromAvg.toFixed(1)} %
+                        </strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>Monthly ({userData.apartmentSize} m²)</span>
+                        <strong>{formatEuro(monthlyRentEndCompare, 0)}</strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>% of income</span>
+                        <strong>{affordabilityCompare.rentPercentage.toFixed(0)} %</strong>
+                      </div>
+                      <div className="stat-item">
+                        <span>Status</span>
+                        <strong>{affordabilityCompare.affordable ? '✓ Affordable' : '✗ Above 30 %'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ── Single-district mode ── */
+                <>
               <div className="stat-stack">
                 <div className="stat-item">
                   <span>Rent {committedRange[0]}</span>
@@ -448,9 +602,58 @@ const GeographicView = () => {
                   </button>
                 ))}
               </div>
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      {/* ── Full ranking list ─────────────────────────────────────────────── */}
+      <div className="card ranking-card">
+        <div className="ranking-header">
+          <span className="mini-section-heading">All 23 districts ({committedRange[1]})</span>
+          <div className="ranking-sort-group">
+            <button
+              type="button"
+              className={rankSortBy === 'devFromAvg' ? 'sort-btn active' : 'sort-btn'}
+              onClick={() => setRankSortBy('devFromAvg')}
+            >vs. Ø %</button>
+            <button
+              type="button"
+              className={rankSortBy === 'endRent' ? 'sort-btn active' : 'sort-btn'}
+              onClick={() => setRankSortBy('endRent')}
+            >€/m²</button>
+          </div>
+        </div>
+        <div className="ranking-list">
+          {rankedDistricts.map((district, i) => {
+            const data       = districtRentMap.get(district.name);
+            const isSelected = selectedDistrict === district.name;
+            const isCompare  = compareDistrict === district.name;
+            return (
+              <button
+                key={district.id}
+                type="button"
+                className={`ranking-row${isSelected ? ' active' : ''}${isCompare ? ' compare' : ''}`}
+                onClick={(e) => {
+                  if (e.shiftKey && selectedDistrict && district.name !== selectedDistrict) {
+                    setCompareDistrict(isCompare ? null : district.name);
+                  } else {
+                    setSelectedDistrict(isSelected ? null : district.name);
+                  }
+                }}
+              >
+                <span className="ranking-pos">{i + 1}</span>
+                <span className="ranking-name">{district.name}</span>
+                <span className={`ranking-dev${(data?.devFromAvg ?? 0) >= 0 ? ' stat-up' : ' stat-down'}`}>
+                  {(data?.devFromAvg ?? 0) >= 0 ? '+' : ''}{(data?.devFromAvg ?? 0).toFixed(1)} %
+                </span>
+                <strong className="ranking-rent">{formatEuro(data?.end ?? 0, 2)}/m²</strong>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {tooltip && (
