@@ -13,11 +13,12 @@ At the moment, each visualization appears somewhat disconnected and not specific
 1. Focus on a smaller group depending on input.
 2. Added summaries and further legends.
 3. Made Visualization more visually appealing.
-4. ...
+4. Created avg comparision
+5. Created more interactive elements
 
 ## AI Disclaimer
 We utilized codex (chatGPT mini) for creating the generate_json.py to be aple to turn data into json format to work with it easily.
-Furthermore, we used it to optimize and structure our css making it easier to fit and be compatible with D3.js.
+Furthermore, we used it to optimize and structure our css making it easier to fit and be compatible with D3.js. Also, we used AI for creating yml file for website deployment and adapting logic of map animatios.
 
 ## Contribution
 - Pascal Rupp:
