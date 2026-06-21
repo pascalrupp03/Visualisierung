@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
-"""Build curated JSON for the visualization app.
+"""Build a curated JSON dataset for the visualization app.
 
-The script reads the source spreadsheets in ``data/`` and writes one structured
-JSON file into ``app/src/data/data.json``. The output is intentionally shaped
-around the story in the website:
-
-* income growth over time
-* graduate and young-adult income benchmarks
-* Vienna housing pressure by age group
-* district-level rent differences
-* inflation context for housing costs
+Reads source files from ``data/`` and writes one structured JSON file to
+``app/src/data/data.json``. The output is intentionally organized around the
+story shown in the website.
 """
 
 from __future__ import annotations
@@ -29,6 +23,13 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APP_DATA_DIR = PROJECT_ROOT / "app" / "src" / "data"
+DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
+DEFAULT_OUTPUT = APP_DATA_DIR / "data.json"
+
+# Optional dedicated district-rent source. If it does not exist, we fall back
+# to the currently committed app data file (legacy behavior).
+DISTRICT_RENT_SOURCE = DEFAULT_DATA_DIR / "building_and_flats" / "vienna_district_rents.json"
+LEGACY_DISTRICT_RENT_SOURCE = APP_DATA_DIR / "data.json"
 
 
 def to_native(value):
@@ -78,6 +79,12 @@ def numeric(value):
         return None
 
 
+def monthly_from_annual(value: float | None) -> float | None:
+    if value is None:
+        return None
+    return round(value / 12, 2)
+
+
 def build_income_trend(frame: pd.DataFrame, section_offset: int) -> list[dict]:
     years = list(range(1998, 2024))
     rows = frame.iloc[section_offset : section_offset + 3]
@@ -103,6 +110,57 @@ def build_income_trend(frame: pd.DataFrame, section_offset: int) -> list[dict]:
 def build_trend_dataset(path: Path, sheet_name: str, section_offset: int) -> list[dict]:
     frame = read_sheet(path, sheet_name=sheet_name, header=0)
     return build_income_trend(frame, section_offset)
+
+
+def build_constant_price_income(
+    nominal_series: list[dict],
+    real_index_series: list[dict],
+) -> list[dict]:
+    """Convert a real-income index (base=100) into constant-price annual euros.
+
+    The source workbook provides real-income trends as index values. The app,
+    however, visualizes yearly income in euros. We therefore scale the index by
+    the nominal base-year level (first common year) to obtain a comparable
+    constant-price euro series.
+    """
+
+    if not nominal_series or not real_index_series:
+        return []
+
+    real_by_year = {item["year"]: item for item in real_index_series}
+    common_years = [item["year"] for item in nominal_series if item["year"] in real_by_year]
+    if not common_years:
+        return []
+
+    base_year = min(common_years)
+    base_nominal = next((item for item in nominal_series if item["year"] == base_year), None)
+    base_real_index = real_by_year.get(base_year)
+
+    if base_nominal is None or base_real_index is None:
+        return []
+
+    def convert_component(base_value: float | None, index_value: float | None) -> float | None:
+        if base_value is None or index_value is None:
+            return None
+        return round(base_value * (index_value / 100.0), 2)
+
+    rows = []
+    for nominal_point in nominal_series:
+        year = nominal_point["year"]
+        real_index_point = real_by_year.get(year)
+        if real_index_point is None:
+            continue
+
+        rows.append(
+            {
+                "year": year,
+                "overall": convert_component(base_nominal.get("overall"), real_index_point.get("overall")),
+                "women": convert_component(base_nominal.get("women"), real_index_point.get("women")),
+                "men": convert_component(base_nominal.get("men"), real_index_point.get("men")),
+            }
+        )
+
+    return rows
 
 
 def build_age_income(path: Path) -> list[dict]:
@@ -258,6 +316,43 @@ def build_contract_duration(path: Path) -> list[dict]:
     return rows
 
 
+def build_benchmark(label: str, annual: float | None, full_time_annual: float | None) -> dict | None:
+    if annual is None:
+        return None
+    if full_time_annual is None:
+        full_time_annual = annual
+    return {
+        "label": label,
+        "annualGross": annual,
+        "monthlyGross": monthly_from_annual(annual),
+        "fullTimeAnnualGross": full_time_annual,
+        "fullTimeMonthlyGross": monthly_from_annual(full_time_annual),
+    }
+
+
+def pick_graduate_benchmark(education_rows: list[dict]) -> dict | None:
+    row = next((item for item in education_rows if item["label"] == "Hochschule, Universität"), None)
+    if row is None:
+        return None
+    # Education table has no dedicated full-time split in this source.
+    return build_benchmark(
+        label=row["label"],
+        annual=row["income"]["all"]["median"],
+        full_time_annual=row["income"]["all"]["median"],
+    )
+
+
+def pick_young_adult_benchmark(age_rows: list[dict]) -> dict | None:
+    row = next((item for item in age_rows if item["label"] == "20 bis 29 Jahre"), None)
+    if row is None:
+        return None
+    return build_benchmark(
+        label=row["label"],
+        annual=row["income"]["all"]["median"],
+        full_time_annual=row["income"]["fullTime"]["median"],
+    )
+
+
 def parse_month_label(value: str) -> int | None:
     match = re.search(r"(\d{2})$", value)
     if not match:
@@ -310,17 +405,32 @@ def build_vienna_districts(path: Path) -> list[dict]:
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
-    districts = payload.get("housing", {}).get("districts", [])
-    if not districts:
-        districts = payload.get("top_level_files", {}).get("data.json", {}).get("vienna_districts", [])
-    return [
-        {
-            "id": int(item["id"]),
-            "name": normalize_text(item["name"]),
-            "avgRentM2": numeric(item.get("avg_rent_m2", item.get("avgRentM2"))),
-        }
-        for item in districts
-    ]
+    districts = []
+    if isinstance(payload, list):
+        districts = payload
+    elif isinstance(payload, dict):
+        districts = payload.get("districts", [])
+        if not districts:
+            districts = payload.get("housing", {}).get("districts", [])
+        if not districts:
+            districts = payload.get("top_level_files", {}).get("data.json", {}).get("vienna_districts", [])
+
+    normalized = []
+    for item in districts:
+        district_id = item.get("id", item.get("cartodb_id"))
+        district_name = item.get("name")
+        avg_rent = numeric(item.get("avg_rent_m2", item.get("avgRentM2", item.get("rent_m2"))))
+        if district_id is None or district_name is None:
+            continue
+        normalized.append(
+            {
+                "id": int(district_id),
+                "name": normalize_text(district_name),
+                "avgRentM2": avg_rent,
+            }
+        )
+
+    return normalized
 
 
 def write_json(path: Path, payload):
@@ -332,13 +442,15 @@ def write_json(path: Path, payload):
 def build_payload(data_dir: Path) -> dict:
     income_workbook = data_dir / "income" / "0_Tabellen_des_Textteils.ods"
     housing_workbook = data_dir / "housing" / "Tabellenband_2024.ods"
-    inflation_workbook = data_dir / "hpvi" / "2015_2025_Inflation.xlsx"
-    districts_json = APP_DATA_DIR / "data.json"
+    inflation_workbook = data_dir / "hpvi" / "2005_2025_Inflation.xlsx"
+    districts_json = DISTRICT_RENT_SOURCE if DISTRICT_RENT_SOURCE.exists() else LEGACY_DISTRICT_RENT_SOURCE
 
     gross_trend = build_trend_dataset(income_workbook, "Tabelle_7", 2)
     net_trend = build_trend_dataset(income_workbook, "Tabelle_7", 6)
-    real_gross_trend = build_trend_dataset(income_workbook, "Tabelle_9", 2)
-    real_net_trend = build_trend_dataset(income_workbook, "Tabelle_9", 6)
+    real_gross_index = build_trend_dataset(income_workbook, "Tabelle_9", 2)
+    real_net_index = build_trend_dataset(income_workbook, "Tabelle_9", 6)
+    real_gross_trend = build_constant_price_income(gross_trend, real_gross_index)
+    real_net_trend = build_constant_price_income(net_trend, real_net_index)
     age_rows = build_age_income(income_workbook)
     education_rows = build_education_income(income_workbook)
     occupation_rows = build_occupation_income(income_workbook)
@@ -346,17 +458,23 @@ def build_payload(data_dir: Path) -> dict:
     tenure_rows = build_tenure_by_age(housing_workbook)
     contract_rows = build_contract_duration(housing_workbook)
     inflation = build_inflation_series(inflation_workbook)
-    annual_housing = {str(entry["year"]): entry for entry in inflation["annual"]}
     housing_category = "04 WOHNUNG, WASSER, STROM, GAS UND ANDERE BRENNSTOFFE"
 
     districts = build_vienna_districts(districts_json)
-    district_average = round(sum(district["avgRentM2"] for district in districts) / len(districts), 2)
+    priced_districts = [district for district in districts if district["avgRentM2"] is not None]
+    if not priced_districts:
+        raise ValueError(
+            f"No district rent values found in {districts_json}. "
+            "Expected entries with 'avg_rent_m2' or 'avgRentM2'."
+        )
+
+    district_average = round(sum(district["avgRentM2"] for district in priced_districts) / len(priced_districts), 2)
     district_spread = {
         "average": district_average,
-        "lowest": min(districts, key=lambda item: item["avgRentM2"]),
-        "highest": max(districts, key=lambda item: item["avgRentM2"]),
-        "topThree": sorted(districts, key=lambda item: item["avgRentM2"], reverse=True)[:3],
-        "bottomThree": sorted(districts, key=lambda item: item["avgRentM2"])[:3],
+        "lowest": min(priced_districts, key=lambda item: item["avgRentM2"]),
+        "highest": max(priced_districts, key=lambda item: item["avgRentM2"]),
+        "topThree": sorted(priced_districts, key=lambda item: item["avgRentM2"], reverse=True)[:3],
+        "bottomThree": sorted(priced_districts, key=lambda item: item["avgRentM2"])[:3],
     }
 
     return {
@@ -375,38 +493,14 @@ def build_payload(data_dir: Path) -> dict:
                 "net": net_trend,
                 "realGross": real_gross_trend,
                 "realNet": real_net_trend,
+                "realGrossIndex": real_gross_index,
+                "realNetIndex": real_net_index,
             },
             "ageGroups2023": age_rows,
             "education2023": education_rows,
             "occupation2023": occupation_rows,
-            "graduateBenchmark2023": next(
-                (
-                    {
-                        "label": row["label"],
-                        "annualGross": row["income"]["all"]["median"],
-                        "monthlyGross": round(row["income"]["all"]["median"] / 12, 2),
-                        "fullTimeAnnualGross": row["income"]["all"]["median"],
-                        "fullTimeMonthlyGross": round(row["income"]["all"]["median"] / 12, 2),
-                    }
-                    for row in education_rows
-                    if row["label"] == "Hochschule, Universität"
-                ),
-                None,
-            ),
-            "youngAdultBenchmark2023": next(
-                (
-                    {
-                        "label": row["label"],
-                        "annualGross": row["income"]["all"]["median"],
-                        "monthlyGross": round(row["income"]["all"]["median"] / 12, 2),
-                        "fullTimeAnnualGross": row["income"]["all"]["median"],
-                        "fullTimeMonthlyGross": round(row["income"]["all"]["median"] / 12, 2),
-                    }
-                    for row in age_rows
-                    if row["label"] == "20 bis 29 Jahre"
-                ),
-                None,
-            ),
+            "graduateBenchmark2023": pick_graduate_benchmark(education_rows),
+            "youngAdultBenchmark2023": pick_young_adult_benchmark(age_rows),
         },
         "housing": {
             "costsByAge2024": housing_cost_rows,
@@ -445,12 +539,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data-dir",
-        default=str(PROJECT_ROOT / "data"),
+        default=str(DEFAULT_DATA_DIR),
         help="Path to the repository data directory.",
     )
     parser.add_argument(
         "--output",
-        default=str(APP_DATA_DIR / "data.json"),
+        default=str(DEFAULT_OUTPUT),
         help="Where to write the curated JSON payload.",
     )
     args = parser.parse_args()

@@ -10,6 +10,44 @@ import type {
 
 const storyData = rawData as unknown as StoryData;
 
+function isLikelyIndexSeries(series: Array<{ overall: number | null }>): boolean {
+  if (!series.length) return false;
+  const numericValues = series
+    .map((point) => point.overall)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  if (!numericValues.length) return false;
+  const maxValue = Math.max(...numericValues);
+  return maxValue < 500;
+}
+
+function convertRealIndexToConstantPrice(
+  nominalSeries: Array<{ year: number; overall: number | null; women: number | null; men: number | null }>,
+  realSeries: Array<{ year: number; overall: number | null; women: number | null; men: number | null }>,
+) {
+  if (!nominalSeries.length || !realSeries.length) return realSeries;
+
+  const baseNominal = nominalSeries[0];
+  const byYear = new Map(realSeries.map((point) => [point.year, point]));
+
+  const scale = (base: number | null, index: number | null) => {
+    if (base === null || index === null) return null;
+    return Math.round(base * (index / 100) * 100) / 100;
+  };
+
+  return nominalSeries
+    .map((nominalPoint) => {
+      const indexPoint = byYear.get(nominalPoint.year);
+      if (!indexPoint) return null;
+      return {
+        year: nominalPoint.year,
+        overall: scale(baseNominal.overall, indexPoint.overall),
+        women: scale(baseNominal.women, indexPoint.women),
+        men: scale(baseNominal.men, indexPoint.men),
+      };
+    })
+    .filter((point): point is NonNullable<typeof point> => point !== null);
+}
+
 const housingIndex = storyData.housing.inflation.annualHousingIndex;
 const firstHousingIndex = housingIndex[0]?.index ?? 100;
 const latestHousingIndex = housingIndex[housingIndex.length - 1]?.index ?? 100;
@@ -18,9 +56,13 @@ const latestIncomeYear = storyData.income.trend.gross[storyData.income.trend.gro
 export const data = storyData;
 export const districtRents = storyData.housing.districts;
 export const incomeTrend = storyData.income.trend.gross;
-export const realIncomeTrend = storyData.income.trend.realGross;
+export const realIncomeTrend = isLikelyIndexSeries(storyData.income.trend.realGross)
+  ? convertRealIndexToConstantPrice(storyData.income.trend.gross, storyData.income.trend.realGross)
+  : storyData.income.trend.realGross;
 export const netIncomeTrend = storyData.income.trend.net;
-export const realNetIncomeTrend = storyData.income.trend.realNet;
+export const realNetIncomeTrend = isLikelyIndexSeries(storyData.income.trend.realNet)
+  ? convertRealIndexToConstantPrice(storyData.income.trend.net, storyData.income.trend.realNet)
+  : storyData.income.trend.realNet;
 export const ageIncomeRows = storyData.income.ageGroups2023;
 export const educationIncomeRows = storyData.income.education2023;
 export const occupationIncomeRows = storyData.income.occupation2023;
@@ -90,18 +132,21 @@ export function getDistrictRentForYear(district: ViennaDistrictRent, year: numbe
 export function getDistrictRentSeries(apartmentSize: number, district?: ViennaDistrictRent) {
   const chosenDistrict = district ?? districtRents[0];
 
-  return housingInflationAnnual.map((entry) => ({
-    year: entry.year,
-    rentPerM2: getDistrictRentForYear(chosenDistrict, entry.year),
-    monthlyRent: getDistrictRentForYear(chosenDistrict, entry.year) * apartmentSize,
+  // Cover all income trend years so charts and lookups are aligned.
+  // For years before inflation data, getDistrictRentForYear extrapolates
+  // backwards using the first known housing index.
+  return incomeTrend.map((point) => ({
+    year: point.year,
+    rentPerM2: getDistrictRentForYear(chosenDistrict, point.year),
+    monthlyRent: getDistrictRentForYear(chosenDistrict, point.year) * apartmentSize,
   }));
 }
 
 export function getAverageDistrictRentSeries(apartmentSize: number) {
-  return housingInflationAnnual.map((entry) => ({
-    year: entry.year,
-    rentPerM2: districtSpread.average * (entry.index ?? latestHousingIndex) / latestHousingIndex,
-    monthlyRent: districtSpread.average * apartmentSize * (entry.index ?? latestHousingIndex) / latestHousingIndex,
+  return incomeTrend.map((point) => ({
+    year: point.year,
+    rentPerM2: districtSpread.average * getHousingIndexRatio(point.year),
+    monthlyRent: districtSpread.average * apartmentSize * getHousingIndexRatio(point.year),
   }));
 }
 
