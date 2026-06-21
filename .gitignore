@@ -1,0 +1,13 @@
+# mac file system
+.DS_Store
+*.DS_Store
+
+# further files
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
