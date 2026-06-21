@@ -13,6 +13,8 @@ import {
   formatPercent,
   getAffordabilityShare,
   getDistrictRentForYear,
+  getHousingIndexForYear,
+  getHousingIndexRatio,
   housingCostRows,
   housingInflationSnapshots,
   tenureRows,
@@ -23,7 +25,8 @@ const AFFORDABILITY_THRESHOLD = 30;
 
 const YEAR_MIN = housingInflationSnapshots[0]?.year ?? 2005;
 const YEAR_MAX = housingInflationSnapshots[housingInflationSnapshots.length - 1]?.year ?? 2025;
-const ALL_YEARS = Array.from({ length: YEAR_MAX - YEAR_MIN + 1 }, (_, i) => YEAR_MIN + i);
+const FIRST_HOUSING_INDEX = getHousingIndexForYear(YEAR_MIN);
+const LAST_HOUSING_INDEX = getHousingIndexForYear(YEAR_MAX);
 
 type YearRange = [number, number];
 
@@ -41,7 +44,6 @@ const GeographicView = () => {
   const districtRentMapRef = useRef<Map<string, { start: number; end: number; absChange: number; devFromAvg: number }>>(new Map());
   const committedRangeRef = useRef<YearRange>([YEAR_MIN, YEAR_MAX]);
   const isDraggingRef = useRef(false);
-  // Refs for the D3 brush — needed by the play animation to move the handle programmatically
   const brushXScaleRef = useRef<d3.ScaleLinear<number, number> | null>(null);
   const brushGRef      = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
   const d3BrushRef     = useRef<d3.BrushBehavior<unknown> | null>(null);
@@ -51,8 +53,8 @@ const GeographicView = () => {
   useEffect(() => { userDataRef.current = userData; }, [userData]);
 
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
-  const [committedRange, setCommittedRange] = useState<YearRange>([YEAR_MIN, YEAR_MAX]);
-  const [draftRange, setDraftRange] = useState<YearRange>([YEAR_MIN, YEAR_MAX]);
+  const [committedRange, setCommittedRange] = useState<YearRange>([YEAR_MIN, YEAR_MIN]);
+  const [draftRange, setDraftRange] = useState<YearRange>([YEAR_MIN, YEAR_MIN]);
   const [compareDistrict, setCompareDistrict] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rankSortBy, setRankSortBy] = useState<'devFromAvg' | 'endRent'>('devFromAvg');
@@ -60,19 +62,11 @@ const GeographicView = () => {
   useEffect(() => { committedRangeRef.current = committedRange; }, [committedRange]);
   useEffect(() => { compareDistrictRef.current = compareDistrict; }, [compareDistrict]);
 
-  // Touch-device detection (once at mount)
-  const isTouchDevice = useMemo(
-    () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
-    [],
-  );
-
   const selectedDistrictData = useMemo(
     () => districtRents.find((d) => d.name === selectedDistrict) ?? null,
     [selectedDistrict],
   );
 
-  // devFromAvg is time-independent (housing index cancels out) — used for the colour scale.
-  // absChange scales with avgRentM2, so expensive districts show a larger absolute increase.
   const districtRentMap = useMemo(() => {
     const map = new Map<string, { start: number; end: number; absChange: number; devFromAvg: number }>();
     for (const district of districtRents) {
@@ -94,18 +88,34 @@ const GeographicView = () => {
     return max;
   }, [districtRentMap]);
 
-  // sqrt power scale: stretches the ±0–12 % cluster (~22 districts) visually while
-  // keeping Innere Stadt (+37 %) at max saturation — ~2.5× more colour spread near 0.
+  const allYearEndRentExtent = useMemo(() => {
+    const values = districtRents.flatMap((district) => housingInflationSnapshots.map((entry) => (
+      getDistrictRentForYear(district, entry.year)
+    )));
+    return d3.extent(values) as [number, number];
+  }, []);
+
+  const mapMetricMode = rankSortBy;
+
+  // Color scale adapts to the selected metric:
+  // relative mode emphasizes distance from Vienna average;
+  // absolute mode emphasizes €/m² differences across districts.
   const colorScale = useMemo(
-    () => d3.scaleDivergingSqrt<string>((t) => d3.interpolateRdYlGn(1 - t))
-      .domain([-maxAbsPct, 0, maxAbsPct]),
-    [maxAbsPct],
+    () => (
+      mapMetricMode === 'devFromAvg'
+        ? d3.scaleDivergingSqrt<string>((t) => d3.interpolateRdYlGn(1 - t))
+          .domain([-(maxAbsPct + 6), 0, maxAbsPct + 6])
+        : d3.scaleSequential<string>(d3.interpolateYlOrRd)
+          .domain([allYearEndRentExtent[0] ?? 0, allYearEndRentExtent[1] ?? 1])
+    ),
+    [maxAbsPct, allYearEndRentExtent, mapMetricMode],
   );
 
   // Side-panel derived values (all read from precomputed map)
   const selectedRentData = selectedDistrictData
     ? (districtRentMap.get(selectedDistrictData.name) ?? null)
     : null;
+  const selectedAverageRent = districtSpread.average * getHousingIndexRatio(committedRange[1]);
   const monthlyRentEnd = selectedRentData ? selectedRentData.end * userData.apartmentSize : 0;
   const affordability  = useAffordabilityCalculator(monthlyRentEnd, userData.salary);
 
@@ -117,6 +127,7 @@ const GeographicView = () => {
   const compareRentData = compareDistrictData
     ? (districtRentMap.get(compareDistrictData.name) ?? null)
     : null;
+  const compareAverageRent = districtSpread.average * getHousingIndexRatio(committedRange[1]);
   const monthlyRentEndCompare = compareRentData ? compareRentData.end * userData.apartmentSize : 0;
   const affordabilityCompare  = useAffordabilityCalculator(monthlyRentEndCompare, userData.salary);
 
@@ -132,6 +143,10 @@ const GeographicView = () => {
     ),
     [districtRentMap, rankSortBy],
   );
+
+  const sortModeLabel = rankSortBy === 'devFromAvg'
+    ? 'deviation from Vienna average'
+    : 'absolute rent per m²';
 
   // Static map geometry — runs once at mount
   useEffect(() => {
@@ -200,21 +215,28 @@ const GeographicView = () => {
     const root = d3.select(mapSvgRef.current).select<SVGGElement>('g.map-root');
     if (root.empty()) return;
     const dur = isDraggingRef.current ? 0 : 220;
+    const yearProgress = Math.max(
+      0,
+      Math.min(
+        1,
+        (getHousingIndexForYear(committedRangeRef.current[1]) - FIRST_HOUSING_INDEX)
+          / Math.max(LAST_HOUSING_INDEX - FIRST_HOUSING_INDEX, 1),
+      ),
+    );
 
     root.selectAll<SVGPathElement, DistrictFeature>('path.district-shape')
       .transition().duration(dur)
       .attr('fill', (feature) => {
         const entry = districtRentMapRef.current.get(feature.properties.name);
-        return colorScale(entry?.devFromAvg ?? 0);
+        if (!entry) return '#e2e8f0';
+        return mapMetricMode === 'devFromAvg'
+          ? colorScale(entry.devFromAvg + (yearProgress * 4))
+          : colorScale(entry.end);
       })
       .attr('stroke', (feature) => {
         if (feature.properties.name === selectedDistrict) return 'var(--geo-stroke-selected)';
         if (feature.properties.name === compareDistrict) return '#7c3aed';
-        const district = districtRents.find((d) => d.name === feature.properties.name);
-        if (!district) return 'rgba(255,255,255,0.9)';
-        const e     = getDistrictRentForYear(district, draftRange[1]);
-        const share = getAffordabilityShare(e * userData.apartmentSize, userData.salary);
-        return share <= AFFORDABILITY_THRESHOLD ? 'var(--chart-affordable)' : 'var(--chart-not-affordable)';
+        return 'rgba(255,255,255,0.82)';
       })
       .attr('stroke-width', (feature) => (
         feature.properties.name === selectedDistrict || feature.properties.name === compareDistrict ? 2.4 : 1.2
@@ -226,13 +248,12 @@ const GeographicView = () => {
         const share = getAffordabilityShare(e * userData.apartmentSize, userData.salary);
         return share <= AFFORDABILITY_THRESHOLD ? 1 : 0.82;
       });
-  }, [draftRange, colorScale, selectedDistrict, compareDistrict, userData]);
+  }, [draftRange, colorScale, selectedDistrict, compareDistrict, userData, mapMetricMode]);
 
   // Brush setup (desktop only, runs once)
   useEffect(() => {
-    if (!brushSvgRef.current || isTouchDevice) return;
+    if (!brushSvgRef.current) return;
 
-    // Fixed coordinate space matching viewBox="0 0 700 64"
     const margin     = { left: 52, right: 52 };
     const innerWidth = 596;
     const brushH     = 28;
@@ -245,7 +266,8 @@ const GeographicView = () => {
     brushXScaleRef.current = xScale;
 
     const svg = d3.select(svgEl);
-    const g   = svg.append('g').attr('transform', `translate(${margin.left}, 4)`);
+    svg.selectAll('*').remove();
+    const g = svg.append('g').attr('transform', `translate(${margin.left}, 4)`);
 
     g.append('g')
       .attr('class', 'brush-axis')
@@ -282,7 +304,6 @@ const GeographicView = () => {
       .on('end', (event) => {
         isDraggingRef.current = false;
         if (!event.selection) {
-          // Brush cleared — reset to full range
           setCommittedRange([YEAR_MIN, YEAR_MAX]);
           setDraftRange([YEAR_MIN, YEAR_MAX]);
           return;
@@ -304,9 +325,10 @@ const GeographicView = () => {
       .attr('fill', 'rgba(99,102,241,0.12)')
       .attr('stroke', '#6366f1').attr('stroke-width', 1.5);
     brushG.selectAll('.handle').attr('fill', '#6366f1').attr('rx', 3);
-  }, [isTouchDevice]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Play animation — advances committedRange[1] by one year every 600 ms
+    brushG.call(brush.move, [xScale(committedRangeRef.current[0]), xScale(committedRangeRef.current[1])]);
+  }, []);
+
   useEffect(() => {
     if (!isPlaying) {
       if (playTimerRef.current) { clearInterval(playTimerRef.current); playTimerRef.current = null; }
@@ -320,7 +342,6 @@ const GeographicView = () => {
         }
         const next: YearRange = [prev[0], prev[1] + 1];
         setDraftRange(next);
-        // Sync the D3 brush handle to the new range
         if (brushXScaleRef.current && brushGRef.current && d3BrushRef.current) {
           brushGRef.current.call(
             d3BrushRef.current.move,
@@ -333,7 +354,7 @@ const GeographicView = () => {
     return () => {
       if (playTimerRef.current) { clearInterval(playTimerRef.current); playTimerRef.current = null; }
     };
-  }, [isPlaying]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPlaying]);
 
   const affordabilityLabel = affordability.affordable
     ? 'Affordable (≤ 30 %)'
@@ -345,8 +366,8 @@ const GeographicView = () => {
         <p className="eyebrow">Housing pressure</p>
         <h2>Vienna districts – rent level relative to average</h2>
         <p>
-          Select a time window to set the reference period. Map colour shows each district relative
-          to the Vienna average at the end year. Click a district for details;
+          Use the year range slider to move the comparison window. Map colour shows each district relative
+          to the Vienna average at the selected end year, or by absolute €/m² if you switch the ranking mode below. Click a district for details;
           click the same district again to close it. <strong>Shift-click</strong> a second district
           to compare both side by side.
         </p>
@@ -354,88 +375,133 @@ const GeographicView = () => {
 
       {/* Year-range selector */}
       <div className="card brush-container">
-        {isTouchDevice ? (
-          <div className="touch-year-range">
-            <div className="touch-year-field">
-              <label htmlFor="geo-start-year">From</label>
-              <select
-                id="geo-start-year"
-                value={committedRange[0]}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  const next: YearRange = [v, Math.max(v + 1, committedRange[1])];
-                  setCommittedRange(next); setDraftRange(next);
-                }}
-              >
-                {ALL_YEARS.slice(0, -1).map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <span className="touch-year-sep">→</span>
-            <div className="touch-year-field">
-              <label htmlFor="geo-end-year">To</label>
-              <select
-                id="geo-end-year"
-                value={committedRange[1]}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  const next: YearRange = [Math.min(committedRange[0], v - 1), v];
-                  setCommittedRange(next); setDraftRange(next);
-                }}
-              >
-                {ALL_YEARS.slice(1).map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <span className="brush-range-badge">{committedRange[0]} – {committedRange[1]}</span>
+        <div className="brush-wrapper">
+          <div className="brush-range-label">
+            <span className="brush-range-badge">
+              {draftRange[0]} – {draftRange[1]}
+              {(draftRange[0] !== committedRange[0] || draftRange[1] !== committedRange[1]) && ' (dragging…)'}
+            </span>
+            <button
+              type="button"
+              className={`play-btn${isPlaying ? ' playing' : ''}`}
+              onClick={() => {
+                if (!isPlaying && committedRange[1] >= YEAR_MAX) {
+                  const reset: YearRange = [committedRange[0], committedRange[0] + 1];
+                  setCommittedRange(reset);
+                  setDraftRange(reset);
+                }
+                setIsPlaying((p) => !p);
+              }}
+              aria-label={isPlaying ? 'Pause animation' : 'Play — advances end year automatically'}
+              title={isPlaying ? 'Pause' : 'Play — advances end year automatically'}
+            >
+              {isPlaying ? '⏸' : '▶'}
+            </button>
           </div>
-        ) : (
-          <div className="brush-wrapper">
-            <div className="brush-range-label">
-              <span className="brush-range-badge">
-                {draftRange[0]} – {draftRange[1]}
-                {(draftRange[0] !== committedRange[0] || draftRange[1] !== committedRange[1]) && ' (dragging…)'}
-              </span>
-              <button
-                type="button"
-                className={`play-btn${isPlaying ? ' playing' : ''}`}
-                onClick={() => {
-                  if (!isPlaying && committedRange[1] >= YEAR_MAX) {
-                    const reset: YearRange = [committedRange[0], committedRange[0] + 1];
-                    setCommittedRange(reset);
-                    setDraftRange(reset);
-                  }
-                  setIsPlaying((p) => !p);
-                }}
-                aria-label={isPlaying ? 'Pause animation' : 'Play — advances end year automatically'}
-                title={isPlaying ? 'Pause' : 'Play — advances end year automatically'}
-              >
-                {isPlaying ? '⏸' : '▶'}
-              </button>
-            </div>
-            <svg ref={brushSvgRef} className="brush-timeline" viewBox="0 0 700 64" preserveAspectRatio="none" />
-          </div>
-        )}
+          <svg ref={brushSvgRef} className="brush-timeline" viewBox="0 0 700 64" preserveAspectRatio="none" />
+        </div>
       </div>
 
       <div className="map-layout-container">
-        <div className="card map-card">
-          <svg
-            ref={mapSvgRef}
-            className="responsive-map"
-            viewBox="0 0 760 600"
-            preserveAspectRatio="xMidYMid meet"
-          />
-          <div className="map-legend">
-            <div className="legend-line">
-              <span className="legend-label-below">Below Vienna average</span>
-              <span className="legend-label-center">Vienna average (0 %)</span>
-              <span className="legend-label-above">Above Vienna average</span>
+        <div className="map-column">
+          <div className="card map-card">
+            <svg
+              ref={mapSvgRef}
+              className="responsive-map"
+              viewBox="0 0 760 600"
+              preserveAspectRatio="xMidYMid meet"
+            />
+            <div className="map-legend">
+              <div className="legend-line">
+                {mapMetricMode === 'devFromAvg' ? (
+                  <>
+                    <span className="legend-label-below">Below Vienna average</span>
+                    <span className="legend-label-center">Vienna average (0 %)</span>
+                    <span className="legend-label-above">Above Vienna average</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="legend-label-below">Lower €/m²</span>
+                    <span className="legend-label-center">Selected year</span>
+                    <span className="legend-label-above">Higher €/m²</span>
+                  </>
+                )}
+              </div>
+              <div className={mapMetricMode === 'devFromAvg' ? 'legend-bar legend-bar-diverging' : 'legend-bar legend-bar-sequential'} />
+              <p>
+                Fill mode:{' '}
+                {mapMetricMode === 'devFromAvg' ? 'relative to average' : 'absolute rent per m²'} · Border:{' '}
+                <span style={{ fontWeight: 600 }}>selected district</span> = dark outline.
+              </p>
+              <p>Affordability threshold: {AFFORDABILITY_THRESHOLD}% of monthly gross income is shown in the side panel.</p>
             </div>
-            <div className="legend-bar legend-bar-diverging" />
-            <p>
-              Border:{' '}
-              <span style={{ color: 'var(--chart-affordable)', fontWeight: 600 }}>green</span> = affordable (≤ 30 %),{' '}
-              <span style={{ color: 'var(--chart-not-affordable)', fontWeight: 600 }}>red</span> = above threshold.
+          </div>
+
+          <div className="card ranking-card ranking-card--inline">
+            <div className="ranking-header">
+              <span className="mini-section-heading">All 23 districts ({committedRange[1]})</span>
+              <div className="ranking-sort-group">
+                <span className="ranking-sort-label">Sort districts by:</span>
+                <button
+                  type="button"
+                  className={rankSortBy === 'devFromAvg' ? 'sort-btn active' : 'sort-btn'}
+                  onClick={() => setRankSortBy('devFromAvg')}
+                >Deviation from average</button>
+                <button
+                  type="button"
+                  className={rankSortBy === 'endRent' ? 'sort-btn active' : 'sort-btn'}
+                  onClick={() => setRankSortBy('endRent')}
+                >€/m²</button>
+              </div>
+            </div>
+            <p className="control-note">
+              Current mode: {sortModeLabel}. The ranking order and the map colour scale update together.
             </p>
+            <div className="ranking-list">
+              {rankedDistricts.map((district, i) => {
+                const data       = districtRentMap.get(district.name);
+                const isSelected = selectedDistrict === district.name;
+                const isCompare  = compareDistrict === district.name;
+                return (
+                  <button
+                    key={district.id}
+                    type="button"
+                    className={`ranking-row${isSelected ? ' active' : ''}${isCompare ? ' compare' : ''}`}
+                    onClick={(e) => {
+                      if (e.shiftKey && selectedDistrict && district.name !== selectedDistrict) {
+                        setCompareDistrict(isCompare ? null : district.name);
+                      } else {
+                        setSelectedDistrict(isSelected ? null : district.name);
+                      }
+                    }}
+                  >
+                    <span className="ranking-pos">{i + 1}</span>
+                    <span className="ranking-name">{district.name}</span>
+                    {rankSortBy === 'devFromAvg' ? (
+                      <>
+                        <strong className={`ranking-value-emphasis${(data?.devFromAvg ?? 0) >= 0 ? ' stat-up' : ' stat-down'}`}>
+                          {(data?.devFromAvg ?? 0) >= 0 ? '+' : ''}
+                          {(data?.devFromAvg ?? 0).toFixed(1)} %
+                        </strong>
+                        <span className="ranking-value-secondary">
+                          {formatEuro(data?.end ?? 0, 2)}/m²
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <strong className="ranking-value-emphasis ranking-value-neutral">
+                          {formatEuro(data?.end ?? 0, 2)}/m²
+                        </strong>
+                        <span className="ranking-value-secondary">
+                          {(data?.devFromAvg ?? 0) >= 0 ? '+' : ''}
+                          {(data?.devFromAvg ?? 0).toFixed(1)} %
+                        </span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -483,8 +549,9 @@ const GeographicView = () => {
                       </div>
                       <div className="stat-item">
                         <span>vs. Vienna Ø</span>
-                        <strong className={selectedRentData.devFromAvg >= 0 ? 'stat-up' : 'stat-down'}>
-                          {selectedRentData.devFromAvg >= 0 ? '+' : ''}{selectedRentData.devFromAvg.toFixed(1)} %
+                        <strong className={selectedRentData.end >= selectedAverageRent ? 'stat-up' : 'stat-down'}>
+                          {selectedRentData.end >= selectedAverageRent ? '+' : ''}
+                          {formatEuro(Math.abs(selectedRentData.end - selectedAverageRent), 2)}/m²
                         </strong>
                       </div>
                       <div className="stat-item">
@@ -513,8 +580,9 @@ const GeographicView = () => {
                       </div>
                       <div className="stat-item">
                         <span>vs. Vienna Ø</span>
-                        <strong className={compareRentData.devFromAvg >= 0 ? 'stat-up' : 'stat-down'}>
-                          {compareRentData.devFromAvg >= 0 ? '+' : ''}{compareRentData.devFromAvg.toFixed(1)} %
+                        <strong className={compareRentData.end >= compareAverageRent ? 'stat-up' : 'stat-down'}>
+                          {compareRentData.end >= compareAverageRent ? '+' : ''}
+                          {formatEuro(Math.abs(compareRentData.end - compareAverageRent), 2)}/m²
                         </strong>
                       </div>
                       <div className="stat-item">
@@ -535,125 +603,64 @@ const GeographicView = () => {
               ) : (
                 /* ── Single-district mode ── */
                 <>
-              <div className="stat-stack">
-                <div className="stat-item">
-                  <span>Rent {committedRange[0]}</span>
-                  <strong>{formatEuro(selectedRentData.start, 2)}/m²</strong>
-                </div>
-                <div className="stat-item">
-                  <span>Rent {committedRange[1]}</span>
-                  <strong>{formatEuro(selectedRentData.end, 2)}/m²</strong>
-                </div>
-                <div className="stat-item">
-                  <span>Price increase {committedRange[0]}–{committedRange[1]}</span>
-                  <strong className="stat-up">
-                    +{selectedRentData.absChange.toFixed(2)} €/m²
-                  </strong>
-                </div>
-                <div className="stat-item">
-                  <span>vs. Vienna average ({committedRange[1]})</span>
-                  <strong className={selectedRentData.devFromAvg >= 0 ? 'stat-up' : 'stat-down'}>
-                    {selectedRentData.devFromAvg >= 0 ? '+' : ''}{selectedRentData.devFromAvg.toFixed(1)} %
-                  </strong>
-                </div>
-                <div className="stat-item">
-                  <span>Monthly rent for {userData.apartmentSize} m² ({committedRange[1]})</span>
-                  <strong>{formatEuro(monthlyRentEnd, 0)}</strong>
-                </div>
-                <div className="stat-item">
-                  <span>Share of your monthly gross income</span>
-                  <strong>{affordability.rentPercentage.toFixed(0)} %</strong>
-                </div>
-                <div className="stat-item">
-                  <span>Affordability status</span>
-                  <strong>{affordabilityLabel}</strong>
-                </div>
-                <div className="stat-item">
-                  <span>Vienna average (base year)</span>
-                  <strong>{formatEuro(districtSpread.average, 2)}/m²</strong>
-                </div>
-              </div>
+                  <div className="stat-stack">
+                    <div className="stat-item">
+                      <span>Rent {committedRange[0]}</span>
+                      <strong>{formatEuro(selectedRentData.start, 2)}/m²</strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>Rent {committedRange[1]}</span>
+                      <strong>{formatEuro(selectedRentData.end, 2)}/m²</strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>Price increase {committedRange[0]}–{committedRange[1]}</span>
+                      <strong className="stat-up">
+                        +{selectedRentData.absChange.toFixed(2)} €/m²
+                      </strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>vs. Vienna average ({committedRange[1]})</span>
+                      <strong className={selectedRentData.end >= selectedAverageRent ? 'stat-up' : 'stat-down'}>
+                        {selectedRentData.end >= selectedAverageRent ? '+' : ''}
+                        {formatEuro(Math.abs(selectedRentData.end - selectedAverageRent), 2)}/m²
+                      </strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>Monthly rent for {userData.apartmentSize} m² ({committedRange[1]})</span>
+                      <strong>{formatEuro(monthlyRentEnd, 0)}</strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>Share of your monthly gross income</span>
+                      <strong>{affordability.rentPercentage.toFixed(0)} %</strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>Affordability status</span>
+                      <strong>{affordabilityLabel}</strong>
+                    </div>
+                    <div className="stat-item">
+                      <span>Vienna average (base year)</span>
+                      <strong>{formatEuro(districtSpread.average, 2)}/m²</strong>
+                    </div>
+                  </div>
 
-              <div className="mini-panel">
-                <strong>Young adults in Vienna</strong>
-                <p>
-                  18–34 year-olds: {formatPercent(tenureRow?.shares.privateRent ?? null, 0)} private rent,{' '}
-                  {formatPercent(tenureRow?.shares.municipal ?? null, 0)} municipal.
-                  Median housing cost: {formatEuro(housingCostRow?.quantiles.median ?? null, 0)}.
-                </p>
-                <strong>Contract duration (Wien)</strong>
-                <p>
-                  Median {durationRow?.durationStats.median ?? '–'} years ·{' '}
-                  {formatPercent(durationRow?.fixedTermShare ?? null, 0)} fixed-term.
-                </p>
-              </div>
-
-              <div className="district-rank-list">
-                <div className="mini-section-heading">Highest rents ({committedRange[1]})</div>
-                {rankedDistricts.slice(0, 5).map((district, i) => (
-                  <button
-                    key={district.id}
-                    type="button"
-                    className={selectedDistrict === district.name ? 'district-row active' : 'district-row'}
-                    onClick={() => setSelectedDistrict(selectedDistrict === district.name ? null : district.name)}
-                  >
-                    <span>{i + 1}. {district.name}</span>
-                    <strong>{formatEuro(districtRentMap.get(district.name)?.end ?? 0, 2)}</strong>
-                  </button>
-                ))}
-              </div>
+                  <div className="mini-panel">
+                    <strong>Young adults in Vienna</strong>
+                    <p>
+                      18–34 year-olds: {formatPercent(tenureRow?.shares.privateRent ?? null, 0)} private rent,{' '}
+                      {formatPercent(tenureRow?.shares.municipal ?? null, 0)} municipal.
+                      Median housing cost: {formatEuro(housingCostRow?.quantiles.median ?? null, 0)}.
+                    </p>
+                    <strong>Contract duration (Wien)</strong>
+                    <p>
+                      Median {durationRow?.durationStats.median ?? '–'} years ·{' '}
+                      {formatPercent(durationRow?.fixedTermShare ?? null, 0)} fixed-term.
+                    </p>
+                  </div>
                 </>
               )}
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-
-      {/* ── Full ranking list ─────────────────────────────────────────────── */}
-      <div className="card ranking-card">
-        <div className="ranking-header">
-          <span className="mini-section-heading">All 23 districts ({committedRange[1]})</span>
-          <div className="ranking-sort-group">
-            <button
-              type="button"
-              className={rankSortBy === 'devFromAvg' ? 'sort-btn active' : 'sort-btn'}
-              onClick={() => setRankSortBy('devFromAvg')}
-            >vs. Ø %</button>
-            <button
-              type="button"
-              className={rankSortBy === 'endRent' ? 'sort-btn active' : 'sort-btn'}
-              onClick={() => setRankSortBy('endRent')}
-            >€/m²</button>
-          </div>
-        </div>
-        <div className="ranking-list">
-          {rankedDistricts.map((district, i) => {
-            const data       = districtRentMap.get(district.name);
-            const isSelected = selectedDistrict === district.name;
-            const isCompare  = compareDistrict === district.name;
-            return (
-              <button
-                key={district.id}
-                type="button"
-                className={`ranking-row${isSelected ? ' active' : ''}${isCompare ? ' compare' : ''}`}
-                onClick={(e) => {
-                  if (e.shiftKey && selectedDistrict && district.name !== selectedDistrict) {
-                    setCompareDistrict(isCompare ? null : district.name);
-                  } else {
-                    setSelectedDistrict(isSelected ? null : district.name);
-                  }
-                }}
-              >
-                <span className="ranking-pos">{i + 1}</span>
-                <span className="ranking-name">{district.name}</span>
-                <span className={`ranking-dev${(data?.devFromAvg ?? 0) >= 0 ? ' stat-up' : ' stat-down'}`}>
-                  {(data?.devFromAvg ?? 0) >= 0 ? '+' : ''}{(data?.devFromAvg ?? 0).toFixed(1)} %
-                </span>
-                <strong className="ranking-rent">{formatEuro(data?.end ?? 0, 2)}/m²</strong>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {tooltip && (

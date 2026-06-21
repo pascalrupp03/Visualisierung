@@ -499,6 +499,10 @@ input[type="range"] {
   background: linear-gradient(90deg, #fff7bc, #fddc6c, #fdae61, #f46d43, #d73027, #7f0000);
 }
 
+.legend-bar-sequential {
+  background: linear-gradient(90deg, #fff7bc, #fee08b, #fdae61, #f46d43, #d73027);
+}
+
 .district-row {
   display: flex;
   justify-content: space-between;
@@ -621,9 +625,20 @@ input[type="range"] {
   align-items: flex-start;
 }
 
-.map-layout-container .map-card {
+.map-column {
   flex: 1 1 auto;
   min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.map-column .map-card {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ranking-card--inline {
+  margin-top: 0;
 }
 
 .side-panel-card {
@@ -638,6 +653,9 @@ input[type="range"] {
 @media (max-width: 900px) {
   .map-layout-container {
     flex-direction: column;
+  }
+  .map-column {
+    width: 100%;
   }
   .side-panel-card {
     flex: none;
@@ -821,7 +839,15 @@ input[type="range"] {
 
 .ranking-sort-group {
   display: flex;
+  align-items: center;
   gap: 0.3rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.ranking-sort-label {
+  color: var(--text-soft);
+  font-size: 0.78rem;
 }
 
 .sort-btn {
@@ -843,17 +869,17 @@ input[type="range"] {
 
 .ranking-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.35rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.55rem;
 }
 
 .ranking-row {
   display: grid;
-  grid-template-columns: 1.4rem 1fr auto auto;
-  gap: 0.4rem;
+  grid-template-columns: 1.5rem 1fr auto auto;
+  gap: 0.6rem;
   align-items: center;
-  padding: 0.55rem 0.75rem;
-  border-radius: 8px;
+  padding: 0.8rem 0.95rem;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: #fff;
   color: var(--text);
@@ -866,25 +892,36 @@ input[type="range"] {
 .ranking-row.compare { border-color: #c4b5fd; background: #f5f3ff; }
 
 .ranking-pos {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   color: var(--text-soft);
   font-weight: 600;
 }
 .ranking-name {
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ranking-value-emphasis {
+  font-weight: 700;
+}
+.ranking-value-neutral {
+  color: var(--text);
+}
+.ranking-value-secondary {
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  justify-self: end;
+}
 .ranking-dev {
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  min-width: 3.5rem;
+  min-width: 4.1rem;
   text-align: right;
 }
 .ranking-rent {
-  font-size: 0.82rem;
-  min-width: 4rem;
+  font-size: 0.9rem;
+  min-width: 4.6rem;
   text-align: right;
 }
